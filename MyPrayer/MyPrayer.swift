@@ -343,7 +343,7 @@ struct TodayScreen:View {
                 Panel {
                     VStack(spacing:0) {
                         let events=store.entries()
-                        ForEach(Array(events.enumerated()),id:\.element.id) { i,event in
+                        ForEach(events) { event in
                             HStack(spacing:13) {
                                 Image(systemName:event.prayer.icon)
                                     .frame(width:44,height:44)
@@ -358,7 +358,7 @@ struct TodayScreen:View {
                                 Text(PrayerClock.time.string(from:event.date))
                                     .font(.system(size:15,weight:.medium))
                             }.foregroundStyle(Palette.dark)
-                            if i<events.count-1 { Divider().padding(.vertical,8) }
+                            if event.id != events.last?.id { Divider().padding(.vertical,8) }
                         }
                         if events.isEmpty { Text("لم يمكن حساب المواقيت لهذا الموقع.") }
                     }
@@ -555,7 +555,7 @@ struct OptionsScreen:View {
                         get:{store.settings.method},
                         set:{v in store.edit{$0.method=v}}
                     )) {
-                        ForEach(methods,id:\.0) { m in Text(m.1).tag(m.0) }
+                        ForEach(0..<methods.count,id:\.self) { i in Text(methods[i].1).tag(methods[i].0) }
                     }.tint(Palette.teal)
                     Text("الطريقة الجعفرية الافتراضية: الفجر 16°، المغرب 4°، العشاء 14°. راجع توقيت المرجعية أو المسجد.")
                         .font(.system(size:12)).foregroundStyle(.secondary)
