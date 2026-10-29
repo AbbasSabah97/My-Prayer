@@ -1,0 +1,4 @@
+/* Arabic name on iPhone while Apple App ID registration uses ASCII fallback */
+"CFBundleDisplayName" = "صلاتي";
+"CFBundleName" = "MyPrayer";
+"NSLocationWhenInUseUsageDescription" = "نستخدم موقعك لحساب مواقيت الصلاة على جهازك دون رفع إحداثياتك لخادم.";

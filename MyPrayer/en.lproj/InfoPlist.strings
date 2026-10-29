@@ -1,0 +1,3 @@
+"CFBundleDisplayName" = "MyPrayer";
+"CFBundleName" = "MyPrayer";
+"NSLocationWhenInUseUsageDescription" = "Your location is used on this device to calculate prayer times.";
