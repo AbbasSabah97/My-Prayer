@@ -1,0 +1,8 @@
+*.xcodeproj/
+.DS_Store
+DerivedData/
+Payload/
+*.ipa
+*.log
+MyPrayer/Resources/*.wav
+MyPrayer/Assets.xcassets/AppIcon.appiconset/AppIcon.png

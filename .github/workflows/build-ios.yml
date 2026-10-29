@@ -1,0 +1,53 @@
+name: Build iOS IPA (unsigned)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Prepare assets (icon and notification sounds)
+        run: |
+          python3 scripts/generate_tones.py
+          swift scripts/generate_icon.swift
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate --spec project.yml
+      - name: Build iPhone app without signing
+        run: |
+          set -eo pipefail
+          xcodebuild -project MyPrayer.xcodeproj \
+            -scheme MyPrayer \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$GITHUB_WORKSPACE/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tee build.log
+      - name: Package unsigned IPA
+        run: |
+          set -euo pipefail
+          mkdir -p Payload
+          cp -R DerivedData/Build/Products/Release-iphoneos/MyPrayer.app Payload/
+          zip -qr MyPrayer-unsigned.ipa Payload
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyPrayer-unsigned-IPA
+          path: MyPrayer-unsigned.ipa
+          if-no-files-found: error
+      - name: Upload build log if failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iOS-build-log
+          path: build.log
+          if-no-files-found: ignore
