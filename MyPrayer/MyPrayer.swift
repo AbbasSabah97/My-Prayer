@@ -50,8 +50,36 @@ struct AppSettings: Codable {
     var offsets: [String: Int] = [:]
     var advance = 0
     var sound = "default"
+
+    // Optional keys migrate safely from 1.0 without deleting existing preferences.
+    var customFajrAngle: Double?
+    var customMaghribAngle: Double?
+    var customIshaAngle: Double?
+
     func active(_ p: Prayer) -> Bool { enabled[p.rawValue] ?? true }
     func correction(_ p: Prayer) -> Int { offsets[p.rawValue] ?? 0 }
+    func angle(_ prayer: Prayer) -> Double {
+        let baseline = PrayerClock.baseParameters(for: method)
+        switch prayer {
+        case .fajr: return customFajrAngle ?? baseline.fajrAngle
+        case .maghrib: return customMaghribAngle ?? baseline.maghribAngle ?? 0
+        case .isha: return customIshaAngle ?? baseline.ishaAngle
+        default: return 0
+        }
+    }
+    mutating func setAngle(_ prayer: Prayer, value: Double) {
+        switch prayer {
+        case .fajr: customFajrAngle = value
+        case .maghrib: customMaghribAngle = value
+        case .isha: customIshaAngle = value
+        default: break
+        }
+    }
+    mutating func resetAngles() {
+        customFajrAngle = nil
+        customMaghribAngle = nil
+        customIshaAngle = nil
+    }
     static func restore() -> AppSettings {
         guard let d = UserDefaults.standard.data(forKey:"appSettings"),
               let value = try? JSONDecoder().decode(AppSettings.self,from:d) else { return AppSettings() }
@@ -63,37 +91,124 @@ struct AppSettings: Codable {
         }
     }
 }
-enum PrayerClock {
-    static func entries(for day: Date, latitude: Double, longitude: Double, settings: AppSettings) -> [PrayerEntry] {
-        let c = Calendar(identifier:.gregorian).dateComponents([.year,.month,.day],from:day)
-        var parameters: CalculationParameters
-        switch settings.method {
-        case "tehran": parameters = CalculationMethod.tehran.params
-        case "mwl": parameters = CalculationMethod.muslimWorldLeague.params
-        case "umm": parameters = CalculationMethod.ummAlQura.params
-        case "karachi": parameters = CalculationMethod.karachi.params
-        default:
-            parameters = CalculationMethod.tehran.params
-            parameters.fajrAngle = 16
-            parameters.maghribAngle = 4
-            parameters.ishaAngle = 14
+struct TimeRow: Identifiable {
+    let id: String
+    let title: String
+    let icon: String
+    let date: Date
+    let detail: String
+    let prayer: Prayer?
+}
+struct DailySchedule {
+    let prayers: [PrayerEntry]
+    let sunrise: Date
+    let sunset: Date
+    let midnight: Date
+
+    var rows: [TimeRow] {
+        var result = prayers.map { e in
+            TimeRow(id:e.prayer.rawValue,title:e.prayer.title,icon:e.prayer.icon,
+                    date:e.date,detail:"صلاة",prayer:e.prayer)
         }
-        parameters.madhab = .shafi
-        guard let t = PrayerTimes(coordinates: Coordinates(latitude:latitude,longitude:longitude),
-                                  date:c,calculationParameters:parameters) else { return [] }
-        let pairs: [(Prayer,Date)] = [
-            (.fajr,t.fajr),(.dhuhr,t.dhuhr),(.asr,t.asr),(.maghrib,t.maghrib),(.isha,t.isha)
-        ]
-        return pairs.map { p,date in
-            PrayerEntry(prayer:p,date:date.addingTimeInterval(Double(settings.correction(p)*60)))
+        result.append(TimeRow(id:"sunrise",title:"شروق الشمس",icon:"sunrise",
+                              date:sunrise,detail:"حدث فلكي — ليس صلاة",prayer:nil))
+        result.append(TimeRow(id:"sunset",title:"غروب الشمس",icon:"sunset",
+                              date:sunset,detail:"الغروب الفلكي — قد يسبق المغرب",prayer:nil))
+        result.append(TimeRow(id:"midnight",title:"منتصف الليل الشرعي",icon:"moon.zzz.fill",
+                              date:midnight,detail:"منتصف الغروب والفجر التالي",prayer:nil))
+        return result.sorted { $0.date < $1.date }
+    }
+}
+enum PrayerClock {
+    static func timeZone(for settings: AppSettings) -> TimeZone {
+        // Manual Iraqi locations must use Iraq's civil time, even if the phone is abroad.
+        if settings.city != "auto" { return TimeZone(identifier:"Asia/Baghdad") ?? .current }
+        return .current
+    }
+    static func calendar(for settings: AppSettings) -> Calendar {
+        var cal = Calendar(identifier:.gregorian)
+        cal.timeZone = timeZone(for:settings)
+        return cal
+    }
+    static func baseParameters(for method: String) -> CalculationParameters {
+        switch method {
+        case "tehran": return CalculationMethod.tehran.params
+        case "mwl": return CalculationMethod.muslimWorldLeague.params
+        case "umm": return CalculationMethod.ummAlQura.params
+        case "karachi": return CalculationMethod.karachi.params
+        default:
+            var p = CalculationMethod.tehran.params
+            p.fajrAngle = 16
+            p.maghribAngle = 4
+            p.ishaAngle = 14
+            return p
         }
     }
-    static let time: DateFormatter = {
-        let f=DateFormatter(); f.locale=Locale(identifier:"ar_IQ"); f.dateFormat="h:mm a"; return f
-    }()
-    static let day: DateFormatter = {
-        let f=DateFormatter(); f.locale=Locale(identifier:"ar_IQ"); f.dateFormat="EEEE، d MMMM yyyy"; return f
-    }()
+    static func parameters(for settings: AppSettings) -> CalculationParameters {
+        var p = baseParameters(for: settings.method)
+        p.madhab = .shafi  // shared shadow-length convention for the selected methods
+        if let value = settings.customFajrAngle { p.fajrAngle = value }
+        if let value = settings.customMaghribAngle { p.maghribAngle = value == 0 ? nil : value }
+        if let value = settings.customIshaAngle {
+            p.ishaAngle = value
+            p.ishaInterval = 0 // override fixed 90-minute Isha methods, e.g. Umm Al-Qura
+        }
+        return p
+    }
+    static func schedule(for day: Date, latitude: Double,
+                         longitude: Double, settings: AppSettings) -> DailySchedule? {
+        let cal = calendar(for:settings)
+        let today = cal.dateComponents([.year,.month,.day],from:day)
+        guard let tomorrowDay = cal.date(byAdding:.day,value:1,to:day) else { return nil }
+        let tomorrow = cal.dateComponents([.year,.month,.day],from:tomorrowDay)
+        let coords = Coordinates(latitude:latitude,longitude:longitude)
+        let parameters = parameters(for:settings)
+        guard let current = PrayerTimes(coordinates:coords,date:today,calculationParameters:parameters),
+              let following = PrayerTimes(coordinates:coords,date:tomorrow,calculationParameters:parameters)
+        else { return nil }
+
+        // The Adhan "maghrib" is affected by the Jafari twilight angle, so
+        // compute actual astronomical sunset separately with no Maghrib angle.
+        var solarParameters = CalculationMethod.other.params
+        solarParameters.fajrAngle = 16
+        solarParameters.ishaAngle = 14
+        solarParameters.maghribAngle = nil
+        solarParameters.madhab = .shafi
+        guard let solar = PrayerTimes(coordinates:coords,date:today,
+                                     calculationParameters:solarParameters) else { return nil }
+        let sunset = solar.maghrib
+        // Sistani's Islamic midnight: midpoint between solar sunset and next true dawn.
+        // It does NOT depend on the civil midnight (00:00), or on Maghrib's twilight delay.
+        let midpoint = sunset.addingTimeInterval(following.fajr.timeIntervalSince(sunset)/2)
+        let roundedMidnight = Date(timeIntervalSince1970:(midpoint.timeIntervalSince1970/60).rounded()*60)
+        let pairs: [(Prayer,Date)] = [
+            (.fajr,current.fajr),(.dhuhr,current.dhuhr),(.asr,current.asr),
+            (.maghrib,current.maghrib),(.isha,current.isha)
+        ]
+        let prayers = pairs.map { p,date in
+            PrayerEntry(prayer:p,date:date.addingTimeInterval(Double(settings.correction(p)*60)))
+        }
+        return DailySchedule(prayers:prayers,sunrise:current.sunrise,
+                             sunset:sunset,midnight:roundedMidnight)
+    }
+    static func entries(for day: Date,latitude:Double,longitude:Double,
+                        settings:AppSettings) -> [PrayerEntry] {
+        schedule(for:day,latitude:latitude,longitude:longitude,settings:settings)?.prayers ?? []
+    }
+    static func formattedTime(_ date: Date, settings: AppSettings) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier:"ar_IQ")
+        f.timeZone = timeZone(for:settings)
+        f.dateFormat = "h:mm a"
+        return f.string(from:date)
+    }
+    static func formattedDay(_ date: Date, settings: AppSettings, short: Bool = false) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier:"ar_IQ")
+        f.timeZone = timeZone(for:settings)
+        f.dateFormat = short ? "E d/MM" : "EEEE، d MMMM yyyy"
+        return f.string(from:date)
+    }
 }
 @MainActor
 final class PrayerStore: NSObject, ObservableObject, CLLocationManagerDelegate {
@@ -126,10 +241,20 @@ final class PrayerStore: NSObject, ObservableObject, CLLocationManagerDelegate {
     var cityName: String {
         City.all.first(where:{$0.id==settings.city})?.name ?? locationLabel
     }
-    func entries(on date:Date = .now) -> [PrayerEntry] {
-        let (lat,lon)=coordinates
-        return PrayerClock.entries(for:date,latitude:lat,longitude:lon,settings:settings)
+    var timeZone: TimeZone { PrayerClock.timeZone(for:settings) }
+    func timeText(_ date: Date) -> String { PrayerClock.formattedTime(date,settings:settings) }
+    func dayText(_ date: Date, short: Bool = false) -> String {
+        PrayerClock.formattedDay(date,settings:settings,short:short)
     }
+    func date(offset days: Int) -> Date? {
+        PrayerClock.calendar(for:settings).date(byAdding:.day,value:days,to:.now)
+    }
+    func daily(on date:Date = .now) -> DailySchedule? {
+        let (lat,lon)=coordinates
+        return PrayerClock.schedule(for:date,latitude:lat,longitude:lon,settings:settings)
+    }
+    func entries(on date:Date = .now) -> [PrayerEntry] { daily(on:date)?.prayers ?? [] }
+    func rows(on date:Date = .now) -> [TimeRow] { daily(on:date)?.rows ?? [] }
     func next(after date:Date) -> PrayerEntry? {
         let tomorrow=Calendar.current.date(byAdding:.day,value:1,to:date) ?? date.addingTimeInterval(86400)
         return (entries(on:date)+entries(on:tomorrow))
@@ -224,9 +349,10 @@ enum AlertScheduler {
     static func schedule(latitude:Double,longitude:Double,settings:AppSettings) async {
         let center=UNUserNotificationCenter.current()
         let now=Date()
+        let cal=PrayerClock.calendar(for:settings)
         var rows:[(String,Date,String,String)]=[]
         for i in 0..<16 {
-            guard let day=Calendar.current.date(byAdding:.day,value:i,to:now) else { continue }
+            guard let day=cal.date(byAdding:.day,value:i,to:now) else { continue }
             for entry in PrayerClock.entries(for:day,latitude:latitude,longitude:longitude,settings:settings) {
                 guard settings.active(entry.prayer),entry.date>now.addingTimeInterval(2) else { continue }
                 let base="salati-"+entry.prayer.rawValue+"-"+String(Int(entry.date.timeIntervalSince1970))
@@ -323,7 +449,7 @@ struct TodayScreen:View {
                     VStack(alignment:.leading,spacing:5) {
                         Text("صلاتي").font(.system(size:34,weight:.heavy,design:.rounded))
                             .foregroundStyle(Palette.dark)
-                        Text(PrayerClock.day.string(from:.now))
+                        Text(store.dayText(.now))
                             .font(.system(size:13)).foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -335,14 +461,14 @@ struct TodayScreen:View {
                 }
                 NextPrayerCard()
                 HStack {
-                    Text("مواقيت الصلاة اليوم").font(.system(size:19,weight:.bold))
+                    Text("مواقيت الصلاة والشمس").font(.system(size:19,weight:.bold))
                     Spacer()
                     Button("جدول 30 يوماً") { monthly=true }
                         .font(.system(size:12,weight:.semibold))
                 }.foregroundStyle(Palette.teal)
                 Panel {
                     VStack(spacing:0) {
-                        let events=store.entries()
+                        let events=store.rows()
                         ForEach(events) { event in
                             HStack(spacing:13) {
                                 Image(systemName:event.prayer.icon)
@@ -350,12 +476,12 @@ struct TodayScreen:View {
                                     .foregroundStyle(Palette.teal)
                                     .background(Palette.pale,in:RoundedRectangle(cornerRadius:12))
                                 VStack(alignment:.leading,spacing:4) {
-                                    Text(event.prayer.title).font(.system(size:17,weight:.bold))
-                                    Text(store.settings.active(event.prayer) ? "التذكير مفعّل" : "التذكير متوقف")
+                                    Text(event.title).font(.system(size:17,weight:.bold))
+                                    Text(event.prayer.map { store.settings.active($0) ? "التذكير مفعّل" : "التذكير متوقف" } ?? event.detail)
                                         .font(.system(size:11)).foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                Text(PrayerClock.time.string(from:event.date))
+                                Text(store.timeText(event.date))
                                     .font(.system(size:15,weight:.medium))
                             }.foregroundStyle(Palette.dark)
                             if event.id != events.last?.id { Divider().padding(.vertical,8) }
@@ -388,7 +514,7 @@ struct NextPrayerCard:View {
                             .font(.system(size:13)).foregroundStyle(.white.opacity(0.84))
                         Text(event?.prayer.title ?? "—")
                             .font(.system(size:40,weight:.heavy)).foregroundStyle(.white)
-                        Text(event.map{PrayerClock.time.string(from:$0.date)} ?? "—")
+                        Text(event.map{store.timeText($0.date)} ?? "—")
                             .font(.system(size:17)).foregroundStyle(.white.opacity(0.88))
                     }
                     Spacer()
@@ -424,16 +550,18 @@ struct MonthScreen:View {
             ScrollView(.horizontal) {
                 VStack(spacing:0) {
                     HStack {
-                        Text("اليوم").frame(width:120)
-                        ForEach(Prayer.allCases) { Text($0.title).frame(width:85) }
-                    }.font(.system(size:13,weight:.bold))
+                        Text("اليوم").frame(width:125)
+                        ForEach(["الفجر","الشروق","الظهر","العصر","الغروب","المغرب","العشاء","منتصف الليل"],id:\.self) {
+                            Text($0).frame(width:92)
+                        }
+                    }.font(.system(size:12,weight:.bold))
                         .foregroundStyle(Palette.teal).padding(.vertical,15)
                     ForEach(0..<30,id:\.self) { offset in
-                        if let d=Calendar.current.date(byAdding:.day,value:offset,to:.now) {
+                        if let d=store.date(offset:offset) {
                             HStack {
-                                Text(Self.short.string(from:d)).frame(width:120)
-                                ForEach(store.entries(on:d)) { p in
-                                    Text(PrayerClock.time.string(from:p.date)).frame(width:85)
+                                Text(store.dayText(d,short:true)).frame(width:125)
+                                ForEach(store.rows(on:d)) { row in
+                                    Text(store.timeText(row.date)).frame(width:92)
                                 }
                             }
                             .font(.system(size:11)).padding(.vertical,12)
@@ -449,9 +577,6 @@ struct MonthScreen:View {
             }}
         }
     }
-    static let short:DateFormatter = {
-        let f=DateFormatter(); f.locale=Locale(identifier:"ar_IQ"); f.dateFormat="E d/MM"; return f
-    }()
 }
 struct AlertsScreen:View {
     @EnvironmentObject private var store:PrayerStore
@@ -553,12 +678,31 @@ struct OptionsScreen:View {
                 Panel {
                     Picker("طريقة الحساب",selection:Binding(
                         get:{store.settings.method},
-                        set:{v in store.edit{$0.method=v}}
+                        set:{v in store.edit{$0.method=v; $0.resetAngles()}}
                     )) {
                         ForEach(0..<methods.count,id:\.self) { i in Text(methods[i].1).tag(methods[i].0) }
                     }.tint(Palette.teal)
-                    Text("الطريقة الجعفرية الافتراضية: الفجر 16°، المغرب 4°، العشاء 14°. راجع توقيت المرجعية أو المسجد.")
+                    Text("اختيار طريقة الحساب يحدد الزوايا الابتدائية. يمكنك تعديلها أدناه؛ ليست هذه قيماً معتمدة من حقيبة المؤمن.")
                         .font(.system(size:12)).foregroundStyle(.secondary)
+                }
+                HStack {
+                    Text("الزوايا الفلكية (بالدرجات)").font(.headline)
+                    Spacer()
+                    Button("استعادة الافتراضي") { store.edit{$0.resetAngles()} }
+                        .font(.system(size:12,weight:.semibold))
+                }.foregroundStyle(Palette.dark)
+                Panel {
+                    VStack(alignment:.leading,spacing:14) {
+                        angleControl(.fajr,title:"زاوية الفجر",range:12...24)
+                        Divider()
+                        angleControl(.maghrib,title:"زاوية المغرب",range:0...8)
+                        Divider()
+                        angleControl(.isha,title:"زاوية العشاء",range:10...24)
+                        Text("زاوية 0° للمغرب تعني بدء المغرب عند غروب الشمس. عند تخصيص زاوية العشاء لطريقة أم القرى، تلغي الزاوية فترة 90 دقيقة الثابتة.")
+                            .font(.system(size:12)).foregroundStyle(.secondary)
+                        Text("تغيير الزوايا يؤثر على أوقات الصلاة والعد التنازلي والتنبيهات ومنتصف الليل الشرعي.")
+                            .font(.system(size:12)).foregroundStyle(.secondary)
+                    }
                 }
                 Text("تصحيح الدقائق لكل صلاة").font(.headline).foregroundStyle(Palette.dark)
                 Panel {
@@ -583,5 +727,21 @@ struct OptionsScreen:View {
                     .font(.system(size:12)).foregroundStyle(.secondary)
             }.padding(20)
         }.background(Palette.background.ignoresSafeArea())
+    }
+    @ViewBuilder
+    private func angleControl(_ prayer: Prayer, title: String,
+                              range: ClosedRange<Double>) -> some View {
+        Stepper(value:Binding(
+            get:{store.settings.angle(prayer)},
+            set:{value in store.edit{$0.setAngle(prayer,value:value)}}
+        ),in:range,step:0.5) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text(String(format:"%.1f°",store.settings.angle(prayer)))
+                    .font(.system(size:14,weight:.semibold))
+                    .foregroundStyle(Palette.teal)
+            }
+        }
     }
 }
