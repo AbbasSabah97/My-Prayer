@@ -230,7 +230,7 @@ final class PrayerStore: NSObject, ObservableObject, CLLocationManagerDelegate {
             locationLabel = "الموقع المحفوظ"
         }
         locator.delegate = self
-        locator.desiredAccuracy = kCLLocationAccuracyKilometer
+        locator.desiredAccuracy = kCLLocationAccuracyHundredMeters
     }
     var coordinates: (Double,Double) {
         if let city=City.all.first(where:{$0.id==settings.city}) {
@@ -471,7 +471,7 @@ struct TodayScreen:View {
                         let events=store.rows()
                         ForEach(events) { event in
                             HStack(spacing:13) {
-                                Image(systemName:event.prayer.icon)
+                                Image(systemName:event.icon)
                                     .frame(width:44,height:44)
                                     .foregroundStyle(Palette.teal)
                                     .background(Palette.pale,in:RoundedRectangle(cornerRadius:12))
