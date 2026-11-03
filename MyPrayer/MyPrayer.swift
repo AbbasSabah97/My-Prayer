@@ -220,6 +220,8 @@ final class PrayerStore: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var notificationsAllowed = false
 
     private let locator = CLLocationManager()
+    private var dayCache: [String: DailySchedule] = [:]
+    private func resetDayCache() { dayCache.removeAll(keepingCapacity:true) }
     private var scheduledTask: Task<Void,Never>?
     private var launched = false
     override init() {
@@ -250,8 +252,15 @@ final class PrayerStore: NSObject, ObservableObject, CLLocationManagerDelegate {
         PrayerClock.calendar(for:settings).date(byAdding:.day,value:days,to:.now)
     }
     func daily(on date:Date = .now) -> DailySchedule? {
+        let c=PrayerClock.calendar(for:settings).dateComponents([.year,.month,.day],from:date)
+        let key="\(c.year ?? 0)-\(c.month ?? 0)-\(c.day ?? 0)"
+        if let saved=dayCache[key] { return saved }
         let (lat,lon)=coordinates
-        return PrayerClock.schedule(for:date,latitude:lat,longitude:lon,settings:settings)
+        guard let schedule=PrayerClock.schedule(for:date,latitude:lat,longitude:lon,settings:settings) else {
+            return nil
+        }
+        dayCache[key]=schedule
+        return schedule
     }
     func entries(on date:Date = .now) -> [PrayerEntry] { daily(on:date)?.prayers ?? [] }
     func rows(on date:Date = .now) -> [TimeRow] { daily(on:date)?.rows ?? [] }
@@ -262,6 +271,7 @@ final class PrayerStore: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     func edit(_ change:(inout AppSettings)->Void) {
         change(&settings)
+        resetDayCache()
         settings.persist()
         if settings.city=="auto" { locate() }
         reschedule()
@@ -272,6 +282,7 @@ final class PrayerStore: NSObject, ObservableObject, CLLocationManagerDelegate {
         refresh()
     }
     func refresh() {
+        resetDayCache()
         Task {
             let status=await UNUserNotificationCenter.current().notificationSettings()
             notificationsAllowed = status.authorizationStatus == .authorized || status.authorizationStatus == .provisional
@@ -299,6 +310,7 @@ final class PrayerStore: NSObject, ObservableObject, CLLocationManagerDelegate {
         guard let fix=locations.last,fix.horizontalAccuracy>=0 else { return }
         latitude=fix.coordinate.latitude
         longitude=fix.coordinate.longitude
+        resetDayCache()
         locationLabel="موقعي الحالي"
         locationMessage=nil
         UserDefaults.standard.set(latitude,forKey:"lastLat")
