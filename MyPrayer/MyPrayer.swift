@@ -45,7 +45,7 @@ struct City: Identifiable {
 }
 struct AppSettings: Codable {
     var city = "auto"
-    var method = "jafari"
+    var method = "haqiba"
     var enabled: [String: Bool] = [:]
     var offsets: [String: Int] = [:]
     var advance = 0
@@ -85,7 +85,15 @@ struct AppSettings: Codable {
     }
     static func restore() -> AppSettings {
         guard let d = UserDefaults.standard.data(forKey:"appSettings"),
-              let value = try? JSONDecoder().decode(AppSettings.self,from:d) else { return AppSettings() }
+              var value = try? JSONDecoder().decode(AppSettings.self,from:d) else { return AppSettings() }
+        // One-time migration: unchanged legacy Jafari preset now uses the
+        // recovered APK defaults. Keep manually tuned user profiles unchanged.
+        if value.method == "jafari" && value.customFajrAngle == nil &&
+            value.customMaghribAngle == nil && value.customIshaAngle == nil &&
+            value.asrModeOverride == nil {
+            value.method = "haqiba"
+            value.persist()
+        }
         return value
     }
     func persist() {
@@ -146,6 +154,12 @@ enum PrayerClock {
     }
     static func baseParameters(for method: String) -> CalculationParameters {
         switch method {
+        case "haqiba":
+            var p = CalculationMethod.tehran.params
+            p.fajrAngle = 18
+            p.maghribAngle = 4
+            p.ishaAngle = 14
+            return p
         case "tehran": return CalculationMethod.tehran.params
         case "mwl": return CalculationMethod.muslimWorldLeague.params
         case "umm": return CalculationMethod.ummAlQura.params
@@ -170,8 +184,58 @@ enum PrayerClock {
         }
         return p
     }
+    /// Compatible with the *default* astronomical engine discovered in the
+    /// supplied APK. Per-user customizations from that Android app are unknown.
+    static func haqibaSchedule(for day: Date, latitude: Double, longitude: Double,
+                               settings: AppSettings) -> DailySchedule? {
+        let tz=timeZone(for:settings)
+        let calendar=calendar(for:settings)
+        guard let next=calendar.date(byAdding:.day,value:1,to:day),
+              let today=HaqibaCalculation.calculate(
+                  day:day,latitude:latitude,longitude:longitude,timeZone:tz,
+                  fajrAngle:settings.angle(.fajr),
+                  maghribAngle:settings.angle(.maghrib),
+                  ishaAngle:settings.angle(.isha),asrFactor:1),
+              let tomorrow=HaqibaCalculation.calculate(
+                  day:next,latitude:latitude,longitude:longitude,timeZone:tz,
+                  fajrAngle:settings.angle(.fajr),
+                  maghribAngle:settings.angle(.maghrib),
+                  ishaAngle:settings.angle(.isha),asrFactor:1) else { return nil }
+        let virtueStart=SolarShadow.shadowIncreaseTime(
+            latitude:latitude,solarNoon:today.dhuhr,increase:2.0/7.0)
+        let virtuePreferred=SolarShadow.shadowIncreaseTime(
+            latitude:latitude,solarNoon:today.dhuhr,increase:4.0/7.0)
+        let virtueEnd=SolarShadow.shadowIncreaseTime(
+            latitude:latitude,solarNoon:today.dhuhr,increase:6.0/7.0)
+        let showVirtue=settings.asrMode=="virtue" && virtueStart != nil
+        let raw:[(Prayer,Date)]=[
+            (.fajr,today.fajr),(.dhuhr,today.dhuhr),
+            (.asr,showVirtue ? virtueStart! : today.asr),
+            (.maghrib,today.maghrib),(.isha,today.isha)
+        ]
+        let prayerEvents=raw.map { prayer,date in
+            PrayerEntry(prayer:prayer,date:SolarShadow.roundedUpToMinute(
+                date.addingTimeInterval(Double(settings.correction(prayer)*60))))
+        }
+        let nextFajr=tomorrow.fajr.addingTimeInterval(Double(settings.correction(.fajr)*60))
+        let middle=today.sunset.addingTimeInterval(nextFajr.timeIntervalSince(today.sunset)/2)
+        let midnight=Date(timeIntervalSince1970:
+                          (middle.timeIntervalSince1970/60).rounded()*60)
+        return DailySchedule(prayers:prayerEvents,
+                             sunrise:SolarShadow.roundedUpToMinute(today.sunrise),
+                             sunset:SolarShadow.roundedUpToMinute(today.sunset),
+                             midnight:midnight,
+                             asrVirtueStart:virtueStart.map(SolarShadow.roundedUpToMinute),
+                             asrVirtuePreferred:virtuePreferred.map(SolarShadow.roundedUpToMinute),
+                             asrVirtueEnd:virtueEnd.map(SolarShadow.roundedUpToMinute),
+                             conventionalAsr:SolarShadow.roundedUpToMinute(today.asr),
+                             asrUsesVirtue:showVirtue)
+    }
     static func schedule(for day: Date, latitude: Double,
                          longitude: Double, settings: AppSettings) -> DailySchedule? {
+        if settings.method == "haqiba" {
+            return haqibaSchedule(for:day,latitude:latitude,longitude:longitude,settings:settings)
+        }
         let cal = calendar(for:settings)
         let today = cal.dateComponents([.year,.month,.day],from:day)
         guard let tomorrowDay = cal.date(byAdding:.day,value:1,to:day) else { return nil }
@@ -568,7 +632,7 @@ struct TodayScreen:View {
         }
         .background(Palette.background.ignoresSafeArea())
         .toolbar(.hidden,for:.navigationBar)
-        .sheet(isPresented:$monthly) { MonthScreen() }
+        .fullScreenCover(isPresented:$monthly) { MonthScreen() }
     }
 }
 struct NextPrayerCard:View {
@@ -616,35 +680,105 @@ struct MonthScreen:View {
     @Environment(\.dismiss) private var dismiss
     var body:some View {
         NavigationStack {
-            ScrollView(.horizontal) {
-                VStack(spacing:0) {
-                    HStack {
-                        Text("اليوم").frame(width:125)
-                        ForEach(["الفجر","الشروق","الظهر","العصر","الغروب","المغرب","العشاء","منتصف الليل"],id:\.self) {
-                            Text($0).frame(width:92)
+            ScrollView(.vertical) {
+                LazyVStack(alignment:.leading,spacing:14) {
+                    HStack(spacing:8) {
+                        Image(systemName:"calendar")
+                            .foregroundStyle(Palette.teal)
+                        VStack(alignment:.leading,spacing:3) {
+                            Text("جميع الأيام الثلاثين").font(.system(size:18,weight:.bold))
+                            Text("اسحب إلى الأعلى والأسفل لعرض الأيام كاملة؛ المسافات الأفقية لم تعد مطلوبة.")
+                                .font(.system(size:11)).foregroundStyle(.secondary)
                         }
-                    }.font(.system(size:12,weight:.bold))
-                        .foregroundStyle(Palette.teal).padding(.vertical,15)
+                    }.padding(.bottom,4)
                     ForEach(0..<30,id:\.self) { offset in
-                        if let d=store.date(offset:offset) {
-                            HStack {
-                                Text(store.dayText(d,short:true)).frame(width:125)
-                                ForEach(store.rows(on:d)) { row in
-                                    Text(store.timeText(row.date)).frame(width:92)
-                                }
-                            }
-                            .font(.system(size:11)).padding(.vertical,12)
-                            .background(offset.isMultiple(of:2) ? Palette.pale : .white)
+                        if let date=store.date(offset:offset) {
+                            MonthDayCard(date:date,dayNumber:offset+1)
+                                .id(offset)
                         }
                     }
-                }.padding(.horizontal,14)
+                    Text("نهاية جدول الثلاثين يومًا")
+                        .font(.system(size:13,weight:.medium))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth:.infinity)
+                        .padding(.vertical,18)
+                }.padding(.horizontal,16).padding(.top,18).padding(.bottom,30)
             }
-            .navigationTitle("مواقيت 30 يوماً")
+            .background(Palette.background.ignoresSafeArea())
+            .navigationTitle("مواقيت 30 يومًا")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement:.navigationBarTrailing) {
-                Button("إغلاق") { dismiss() }
-            }}
+            .toolbar {
+                ToolbarItem(placement:.navigationBarTrailing) {
+                    Button("إغلاق") { dismiss() }.foregroundStyle(Palette.teal)
+                }
+            }
         }
+    }
+}
+struct MonthDayCard:View {
+    @EnvironmentObject private var store:PrayerStore
+    let date:Date
+    let dayNumber:Int
+    private let columns=[
+        GridItem(.flexible(),spacing:9),
+        GridItem(.flexible(),spacing:9)
+    ]
+    var body:some View {
+        let rows=store.rows(on:date)
+        VStack(alignment:.leading,spacing:13) {
+            HStack {
+                VStack(alignment:.leading,spacing:4) {
+                    Text(store.dayText(date))
+                        .font(.system(size:15,weight:.bold))
+                        .foregroundStyle(Palette.dark)
+                    Text(store.settings.method == "haqiba"
+                         ? "حساب متوافق مع إعدادات حقيبة المؤمن المستخرجة"
+                         : "طريقة الحساب المختارة")
+                        .font(.system(size:10))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text("\(dayNumber) / 30")
+                    .font(.system(size:12,weight:.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(Palette.teal)
+                    .padding(.horizontal,11).padding(.vertical,7)
+                    .background(Palette.pale,in:Capsule())
+            }
+            if rows.count == 8 {
+                LazyVGrid(columns:columns,spacing:10) {
+                    ForEach(rows) { row in
+                        HStack(spacing:6) {
+                            Image(systemName:row.icon)
+                                .font(.system(size:13))
+                                .frame(width:20)
+                                .foregroundStyle(Palette.aqua)
+                            VStack(alignment:.leading,spacing:3) {
+                                Text(row.title)
+                                    .font(.system(size:11,weight:.medium))
+                                    .foregroundStyle(.secondary)
+                                Text(store.timeText(row.date))
+                                    .font(.system(size:13,weight:.semibold))
+                                    .foregroundStyle(Palette.dark)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+                            }
+                            Spacer(minLength:0)
+                        }
+                        .padding(10)
+                        .frame(maxWidth:.infinity,alignment:.leading)
+                        .background(Palette.background,in:RoundedRectangle(cornerRadius:12))
+                    }
+                }
+            } else {
+                Text("تعذر حساب مواقيت هذا اليوم؛ تحقق من إعدادات الموقع والزوايا.")
+                    .font(.system(size:12)).foregroundStyle(.orange)
+            }
+        }
+        .padding(15)
+        .frame(maxWidth:.infinity,alignment:.leading)
+        .background(.white,in:RoundedRectangle(cornerRadius:20))
+        .overlay(RoundedRectangle(cornerRadius:20).stroke(Palette.pale,lineWidth:1))
     }
 }
 struct AlertsScreen:View {
@@ -719,7 +853,8 @@ struct AlertsScreen:View {
 struct OptionsScreen:View {
     @EnvironmentObject private var store:PrayerStore
     private let methods:[(String,String)]=[
-        ("jafari","جعفري تقريبي — قابل للمعايرة"),("tehran","طهران"),
+        ("haqiba","مطابقة حقيبة المؤمن — APK"),
+        ("jafari","جعفري تقريبي — فضيلة العصر"),("tehran","طهران"),
         ("mwl","رابطة العالم الإسلامي"),("umm","أم القرى"),("karachi","كراتشي")
     ]
     var body:some View {
@@ -751,7 +886,9 @@ struct OptionsScreen:View {
                     )) {
                         ForEach(0..<methods.count,id:\.self) { i in Text(methods[i].1).tag(methods[i].0) }
                     }.tint(Palette.teal)
-                    Text("اختيار طريقة الحساب يحدد الزوايا الابتدائية. يمكنك تعديلها أدناه؛ ليست هذه قيماً معتمدة من حقيبة المؤمن.")
+                    Text(store.settings.method == "haqiba"
+                         ? "إعدادات APK المكتشفة: الفجر 18°، المغرب 4°، العشاء 14°، العصر ظل 1، منتصف الليل بين الغروب والفجر التالي. المقارنة مع جهاز حقيبة المؤمن تتأثر بتصحيحات المستخدم."
+                         : "اختيار طريقة الحساب يحدد الزوايا الابتدائية. هذه إعدادات فلكية وليست تقويمًا رسميًا عن المرجعية.")
                         .font(.system(size:12)).foregroundStyle(.secondary)
                 }
                 HStack {
@@ -767,7 +904,7 @@ struct OptionsScreen:View {
                         angleControl(.maghrib,title:"زاوية المغرب",range:0...8)
                         Divider()
                         angleControl(.isha,title:"زاوية العشاء",range:10...24)
-                        Text("زاوية 0° للمغرب تعني بدء المغرب عند غروب الشمس. عند تخصيص زاوية العشاء لطريقة أم القرى، تلغي الزاوية فترة 90 دقيقة الثابتة.")
+                        Text("يمكن تخصيص زوايا الطريقة المختارة، لكن أي تغيير عن 18° و4° و14° في وضع حقيبة المؤمن سيغير درجة التطابق. زاوية 0° للمغرب تعادل الغروب الفلكي.")
                             .font(.system(size:12)).foregroundStyle(.secondary)
                         Text("تغيير الزوايا يؤثر على أوقات الصلاة والعد التنازلي والتنبيهات ومنتصف الليل الشرعي.")
                             .font(.system(size:12)).foregroundStyle(.secondary)
