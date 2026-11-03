@@ -55,6 +55,9 @@ struct AppSettings: Codable {
     var customFajrAngle: Double?
     var customMaghribAngle: Double?
     var customIshaAngle: Double?
+    // Optional to preserve user preferences saved by older versions.
+    var asrModeOverride: String?
+    var asrMode: String { asrModeOverride ?? ((method == "jafari" || method == "tehran") ? "virtue" : "shadow") }
 
     func active(_ p: Prayer) -> Bool { enabled[p.rawValue] ?? true }
     func correction(_ p: Prayer) -> Int { offsets[p.rawValue] ?? 0 }
@@ -104,11 +107,22 @@ struct DailySchedule {
     let sunrise: Date
     let sunset: Date
     let midnight: Date
-
+    let asrVirtueStart: Date?
+    let asrVirtuePreferred: Date?
+    let asrVirtueEnd: Date?
+    let conventionalAsr: Date
+    let asrUsesVirtue: Bool
     var rows: [TimeRow] {
-        var result = prayers.map { e in
-            TimeRow(id:e.prayer.rawValue,title:e.prayer.title,icon:e.prayer.icon,
-                    date:e.date,detail:"صلاة",prayer:e.prayer)
+        var result = prayers.map { e -> TimeRow in
+            let detail: String
+            switch e.prayer {
+            case .asr: detail = asrUsesVirtue ? "بداية فضيلة العصر — بعد أداء الظهر" : "حساب ظل المثل — ليس بداية جواز العصر"
+            case .maghrib: detail = "تقدير زوال الحمرة المشرقية — تحقق محليًا"
+            case .isha: detail = "تقدير انحسار الشفق — لا يمثل بداية الجواز"
+            default: detail = "وقت الصلاة المحسوب"
+            }
+            return TimeRow(id:e.prayer.rawValue,title:e.prayer.title,icon:e.prayer.icon,
+                           date:e.date,detail:detail,prayer:e.prayer)
         }
         result.append(TimeRow(id:"sunrise",title:"شروق الشمس",icon:"sunrise",
                               date:sunrise,detail:"حدث فلكي — ليس صلاة",prayer:nil))
@@ -146,7 +160,8 @@ enum PrayerClock {
     }
     static func parameters(for settings: AppSettings) -> CalculationParameters {
         var p = baseParameters(for: settings.method)
-        p.madhab = .shafi  // shared shadow-length convention for the selected methods
+        p.madhab = .shafi
+        p.rounding = .none // compute at second precision and round event times only at the end
         if let value = settings.customFajrAngle { p.fajrAngle = value }
         if let value = settings.customMaghribAngle { p.maghribAngle = value == 0 ? nil : value }
         if let value = settings.customIshaAngle {
@@ -167,29 +182,42 @@ enum PrayerClock {
               let following = PrayerTimes(coordinates:coords,date:tomorrow,calculationParameters:parameters)
         else { return nil }
 
-        // The Adhan "maghrib" is affected by the Jafari twilight angle, so
-        // compute actual astronomical sunset separately with no Maghrib angle.
+        // Actual astronomical sunset must not be confused with the Maghrib
+        // twilight criterion. Compute unadjusted solar events independently.
         var solarParameters = CalculationMethod.other.params
         solarParameters.fajrAngle = 16
         solarParameters.ishaAngle = 14
         solarParameters.maghribAngle = nil
+        solarParameters.rounding = .none
         solarParameters.madhab = .shafi
         guard let solar = PrayerTimes(coordinates:coords,date:today,
                                      calculationParameters:solarParameters) else { return nil }
         let sunset = solar.maghrib
-        // Sistani's Islamic midnight: midpoint between solar sunset and next true dawn.
-        // It does NOT depend on the civil midnight (00:00), or on Maghrib's twilight delay.
-        let midpoint = sunset.addingTimeInterval(following.fajr.timeIntervalSince(sunset)/2)
-        let roundedMidnight = Date(timeIntervalSince1970:(midpoint.timeIntervalSince1970/60).rounded()*60)
+        let start = SolarShadow.shadowIncreaseTime(latitude:latitude,solarNoon:solar.dhuhr,increase:2.0/7.0)
+        let preferred = SolarShadow.shadowIncreaseTime(latitude:latitude,solarNoon:solar.dhuhr,increase:4.0/7.0)
+        let end = SolarShadow.shadowIncreaseTime(latitude:latitude,solarNoon:solar.dhuhr,increase:6.0/7.0)
+        let useVirtue = settings.asrMode == "virtue" && start != nil
+        let nextFajr = following.fajr.addingTimeInterval(Double(settings.correction(.fajr)*60))
+        let midpoint = sunset.addingTimeInterval(nextFajr.timeIntervalSince(sunset)/2)
+        let midnight = Date(timeIntervalSince1970:(midpoint.timeIntervalSince1970/60).rounded()*60)
         let pairs: [(Prayer,Date)] = [
-            (.fajr,current.fajr),(.dhuhr,current.dhuhr),(.asr,current.asr),
+            (.fajr,current.fajr),(.dhuhr,current.dhuhr),
+            (.asr,useVirtue ? start! : current.asr),
             (.maghrib,current.maghrib),(.isha,current.isha)
         ]
-        let prayers = pairs.map { p,date in
-            PrayerEntry(prayer:p,date:date.addingTimeInterval(Double(settings.correction(p)*60)))
+        let prayers = pairs.map { prayer,date in
+            PrayerEntry(prayer:prayer,date:SolarShadow.roundedUpToMinute(
+                date.addingTimeInterval(Double(settings.correction(prayer)*60))))
         }
-        return DailySchedule(prayers:prayers,sunrise:current.sunrise,
-                             sunset:sunset,midnight:roundedMidnight)
+        return DailySchedule(prayers:prayers,
+                             sunrise:SolarShadow.roundedUpToMinute(solar.sunrise),
+                             sunset:SolarShadow.roundedUpToMinute(sunset),
+                             midnight:midnight,
+                             asrVirtueStart:start.map(SolarShadow.roundedUpToMinute),
+                             asrVirtuePreferred:preferred.map(SolarShadow.roundedUpToMinute),
+                             asrVirtueEnd:end.map(SolarShadow.roundedUpToMinute),
+                             conventionalAsr:SolarShadow.roundedUpToMinute(current.asr),
+                             asrUsesVirtue:useVirtue)
     }
     static func entries(for day: Date,latitude:Double,longitude:Double,
                         settings:AppSettings) -> [PrayerEntry] {
@@ -265,7 +293,7 @@ final class PrayerStore: NSObject, ObservableObject, CLLocationManagerDelegate {
     func entries(on date:Date = .now) -> [PrayerEntry] { daily(on:date)?.prayers ?? [] }
     func rows(on date:Date = .now) -> [TimeRow] { daily(on:date)?.rows ?? [] }
     func next(after date:Date) -> PrayerEntry? {
-        let tomorrow=Calendar.current.date(byAdding:.day,value:1,to:date) ?? date.addingTimeInterval(86400)
+        let tomorrow=PrayerClock.calendar(for:settings).date(byAdding:.day,value:1,to:date) ?? date.addingTimeInterval(86400)
         return (entries(on:date)+entries(on:tomorrow))
             .filter{$0.date>date}.sorted{$0.date<$1.date}.first
     }
@@ -489,7 +517,7 @@ struct TodayScreen:View {
                                     .background(Palette.pale,in:RoundedRectangle(cornerRadius:12))
                                 VStack(alignment:.leading,spacing:4) {
                                     Text(event.title).font(.system(size:17,weight:.bold))
-                                    Text(event.prayer.map { store.settings.active($0) ? "التذكير مفعّل" : "التذكير متوقف" } ?? event.detail)
+                                    Text(event.prayer == nil ? event.detail : event.detail + (event.prayer.map { store.settings.active($0) ? " · التنبيه مفعّل" : " · التنبيه متوقف" } ?? ""))
                                         .font(.system(size:11)).foregroundStyle(.secondary)
                                 }
                                 Spacer()
@@ -501,7 +529,36 @@ struct TodayScreen:View {
                         if events.isEmpty { Text("لم يمكن حساب المواقيت لهذا الموقع.") }
                     }
                 }
-                Label("قد تختلف المواقيت عن تقويم المسجد المحلي؛ تحقق منها واضبط الدقائق عند الحاجة.",
+                if let day = store.daily(),
+                   let start = day.asrVirtueStart,
+                   let preferred = day.asrVirtuePreferred,
+                   let end = day.asrVirtueEnd {
+                    Panel {
+                        VStack(alignment:.leading,spacing:12) {
+                            Text("فضيلة العصر وفق زيادة الظل")
+                                .font(.system(size:16,weight:.bold)).foregroundStyle(Palette.teal)
+                            HStack {
+                                VStack(alignment:.leading,spacing:4) {
+                                    Text("البداية ٢/٧").font(.system(size:12)).foregroundStyle(.secondary)
+                                    Text(store.timeText(start)).font(.system(size:13,weight:.semibold))
+                                }
+                                Spacer()
+                                VStack(alignment:.leading,spacing:4) {
+                                    Text("الأفضل ٤/٧").font(.system(size:12)).foregroundStyle(.secondary)
+                                    Text(store.timeText(preferred)).font(.system(size:13,weight:.semibold))
+                                }
+                                Spacer()
+                                VStack(alignment:.leading,spacing:4) {
+                                    Text("النهاية ٦/٧").font(.system(size:12)).foregroundStyle(.secondary)
+                                    Text(store.timeText(end)).font(.system(size:13,weight:.semibold))
+                                }
+                            }.foregroundStyle(Palette.dark)
+                            Text("طريقة المِثل: \(store.timeText(day.conventionalAsr)). وقت الفضيلة ليس بداية جواز العصر، بل تجوز بعد الظهر مع مراعاة الترتيب.")
+                                .font(.system(size:12)).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                Label("الفجر والمغرب محسوبان فلكيًا وفق زوايا تقديرية. يلزم التحقق من التقويم المحلي؛ لا يمثل هذا تقويمًا رسميًا للمرجعية أو لحقيبة المؤمن.",
                       systemImage:"info.circle")
                     .font(.system(size:12)).foregroundStyle(.secondary)
                 if let message=store.locationMessage {
@@ -662,7 +719,7 @@ struct AlertsScreen:View {
 struct OptionsScreen:View {
     @EnvironmentObject private var store:PrayerStore
     private let methods:[(String,String)]=[
-        ("jafari","الجعفري — قم"),("tehran","طهران"),
+        ("jafari","جعفري تقريبي — قابل للمعايرة"),("tehran","طهران"),
         ("mwl","رابطة العالم الإسلامي"),("umm","أم القرى"),("karachi","كراتشي")
     ]
     var body:some View {
@@ -690,7 +747,7 @@ struct OptionsScreen:View {
                 Panel {
                     Picker("طريقة الحساب",selection:Binding(
                         get:{store.settings.method},
-                        set:{v in store.edit{$0.method=v; $0.resetAngles()}}
+                        set:{v in store.edit{$0.method=v; $0.resetAngles(); $0.asrModeOverride=nil}}
                     )) {
                         ForEach(0..<methods.count,id:\.self) { i in Text(methods[i].1).tag(methods[i].0) }
                     }.tint(Palette.teal)
@@ -716,6 +773,20 @@ struct OptionsScreen:View {
                             .font(.system(size:12)).foregroundStyle(.secondary)
                     }
                 }
+                Text("اختيار وقت العصر").font(.headline).foregroundStyle(Palette.dark)
+                Panel {
+                    VStack(alignment:.leading,spacing:9) {
+                        Picker("التوقيت المعروض للعصر",selection:Binding(
+                            get:{store.settings.asrMode},
+                            set:{value in store.edit{$0.asrModeOverride=value}}
+                        )) {
+                            Text("بداية فضيلة العصر — ظل ٢/٧").tag("virtue")
+                            Text("حساب ظل المثل — ١").tag("shadow")
+                        }.tint(Palette.teal)
+                        Text("اختيار بداية فضيلة العصر لا يعني أنها بداية جواز صلاة العصر؛ مع مراعاة أداء الظهر قبلها.")
+                            .font(.system(size:12)).foregroundStyle(.secondary)
+                    }
+                }
                 Text("تصحيح الدقائق لكل صلاة").font(.headline).foregroundStyle(Palette.dark)
                 Panel {
                     VStack(spacing:13) {
@@ -735,7 +806,7 @@ struct OptionsScreen:View {
                         }
                     }
                 }
-                Text("الموقع يحسب على الهاتف دون رفع الإحداثيات إلى خادم. هذا التطبيق للتذكير بالصلاة فقط.")
+                Text("حسابات فلكية محلية تقديرية؛ ليست جدولًا رسميًا صادرًا عن مكتب السيد السيستاني أو تطبيق حقيبة المؤمن. تحقق من العلامات الشرعية والتقويم المحلي.")
                     .font(.system(size:12)).foregroundStyle(.secondary)
             }.padding(20)
         }.background(Palette.background.ignoresSafeArea())

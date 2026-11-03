@@ -17,6 +17,10 @@ jobs:
         run: |
           python3 scripts/generate_tones.py
           swift scripts/generate_icon.swift
+      - name: Test Jafari solar shadow algorithm
+        run: |
+          swiftc MyPrayer/SolarShadow.swift scripts/solar-shadow-tests/main.swift -o /tmp/solar-shadow-tests
+          /tmp/solar-shadow-tests
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate Xcode project
