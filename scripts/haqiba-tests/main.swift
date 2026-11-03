@@ -12,7 +12,7 @@ let sample=date(2026,11,3)
 let p=HaqibaCalculation.calculate(day:sample,latitude:32.4721,
         longitude:44.4217,timeZone:city)!
 let times=[p.fajr,p.sunrise,p.dhuhr,p.asr,p.sunset,p.maghrib,p.isha]
-precondition(zip(times,times.dropFirst()).allSatisfy{$0<$1})
+precondition(zip(times,times.dropFirst()).allSatisfy{$0.0<$0.1})
 let estimates=[298,381,706,888,1030,1046,1094] // APK reconstruction minutes
 for (actual,expected) in zip(times,estimates) {
     precondition(abs(minutes(sample,actual)-Double(expected))<=3,
@@ -31,6 +31,16 @@ for month in 1...12 {
     precondition(events.dhuhr<events.asr && events.asr<events.sunset)
     precondition(events.sunset<events.maghrib && events.maghrib<events.isha)
 }
+var lastFajr=Date.distantPast
+for offset in 0..<30 {
+    let day=cal.date(byAdding:.day,value:offset,to:sample)!
+    guard let events=HaqibaCalculation.calculate(day:day,latitude:32.4721,
+                            longitude:44.4217,timeZone:city) else {
+        fatalError("Missing calculated day \(offset+1)")
+    }
+    precondition(events.fajr>lastFajr)
+    lastFajr=events.fajr
+}
 precondition(HaqibaCalculation.calculate(day:sample,latitude:100,
                     longitude:44.4217,timeZone:city)==nil)
-print("PASS: Haqibat compatibility equations, 12 months, angles and chronology")
+print("PASS: Haqibat compatibility equations, 12 months, full 30-day range, angles and chronology")
