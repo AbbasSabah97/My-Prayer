@@ -126,10 +126,11 @@ object PrayerCalculator {
         var fajr = angleTime(180.0 - fajrAngle, guesses[0])
         val sunrise = angleTime(180.0 - SUNRISE_ANGLE, guesses[1])
         val dhuhr = noon(guesses[2])
-        val asr = asr(guesses[3])
+        val asrHour = asr(guesses[3])
         val sunset = angleTime(SUNRISE_ANGLE, guesses[4])
         var maghrib = if (maghribAngle == 0.0) sunset else angleTime(maghribAngle, guesses[5])
-        var isha = if (method.ishaIntervalMinutes != null) maghrib + method.ishaIntervalMinutes / 60.0
+        val ishaInterval = if (settings.customIshaAngle != null) null else method.ishaIntervalMinutes
+        var isha = if (ishaInterval != null) maghrib + ishaInterval / 60.0
             else angleTime(ishaAngle, guesses[6])
 
         val correction = zoneHours - longitude / 15.0
@@ -147,7 +148,7 @@ object PrayerCalculator {
             if (!fajr.isFinite() || mod(sunriseCorrected - fajr, 24.0) > fajrMaximum) {
                 fajr = sunriseCorrected - fajrMaximum
             }
-            if (method.ishaIntervalMinutes == null) {
+            if (ishaInterval == null) {
                 val ishaMaximum = ishaAngle / 60.0 * night
                 if (!isha.isFinite() || mod(isha - sunsetCorrected, 24.0) > ishaMaximum) {
                     isha = sunsetCorrected + ishaMaximum
