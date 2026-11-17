@@ -4,6 +4,14 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    paths:
+      - "MyPrayer/**"
+      - "project.yml"
+      - "scripts/generate_icon.swift"
+      - "scripts/generate_tones.py"
+      - "scripts/haqiba-tests/**"
+      - "scripts/solar-shadow-tests/**"
+      - ".github/workflows/build-ios.yml"
 
 jobs:
   build:

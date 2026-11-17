@@ -10,8 +10,8 @@ android {
         applicationId = "com.abbassabah.myprayer"
         minSdk = 30
         targetSdk = 32
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 6
+        versionName = "1.3.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {

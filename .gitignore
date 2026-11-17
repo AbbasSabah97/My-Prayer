@@ -6,3 +6,8 @@ Payload/
 *.log
 MyPrayer/Resources/*.wav
 MyPrayer/Assets.xcassets/AppIcon.appiconset/AppIcon.png
+android/.gradle/
+android/local.properties
+android/**/build/
+android/app/src/main/res/raw/*.wav
+*.apk
