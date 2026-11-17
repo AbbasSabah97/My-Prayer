@@ -63,7 +63,24 @@ private val AppGold = Color(0xFFD4A65C)
 private val AppPale = Color(0xFFE8F0EB)
 private val AppMuted = Color(0xFF77777C)
 private val AppFontFamily = FontFamily(Font(R.font.noto_sans_arabic_ui, weight = FontWeight.Normal))
-private val AppTypography = Typography(defaultFontFamily = AppFontFamily)
+private val BaseTypography = Typography()
+private val AppTypography = Typography(
+    displayLarge = BaseTypography.displayLarge.copy(fontFamily = AppFontFamily),
+    displayMedium = BaseTypography.displayMedium.copy(fontFamily = AppFontFamily),
+    displaySmall = BaseTypography.displaySmall.copy(fontFamily = AppFontFamily),
+    headlineLarge = BaseTypography.headlineLarge.copy(fontFamily = AppFontFamily),
+    headlineMedium = BaseTypography.headlineMedium.copy(fontFamily = AppFontFamily),
+    headlineSmall = BaseTypography.headlineSmall.copy(fontFamily = AppFontFamily),
+    titleLarge = BaseTypography.titleLarge.copy(fontFamily = AppFontFamily),
+    titleMedium = BaseTypography.titleMedium.copy(fontFamily = AppFontFamily),
+    titleSmall = BaseTypography.titleSmall.copy(fontFamily = AppFontFamily),
+    bodyLarge = BaseTypography.bodyLarge.copy(fontFamily = AppFontFamily),
+    bodyMedium = BaseTypography.bodyMedium.copy(fontFamily = AppFontFamily),
+    bodySmall = BaseTypography.bodySmall.copy(fontFamily = AppFontFamily),
+    labelLarge = BaseTypography.labelLarge.copy(fontFamily = AppFontFamily),
+    labelMedium = BaseTypography.labelMedium.copy(fontFamily = AppFontFamily),
+    labelSmall = BaseTypography.labelSmall.copy(fontFamily = AppFontFamily)
+)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
