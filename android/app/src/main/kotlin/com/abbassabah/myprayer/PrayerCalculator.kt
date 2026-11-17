@@ -137,7 +137,7 @@ object PrayerCalculator {
         fajr += correction
         val sunriseCorrected = sunrise + correction
         val dhuhrCorrected = dhuhr + correction
-        val asrCorrected = asr + correction
+        val asrCorrected = asrHour + correction
         val sunsetCorrected = sunset + correction
         maghrib += correction
         isha += correction
