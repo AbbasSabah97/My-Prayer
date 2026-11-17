@@ -122,7 +122,7 @@ object PrayerCalculator {
             return angleTime(altitude, t)
         }
 
-        val guesses = doubleArrayOf(5, 6, 12, 13, 18, 18, 18).map { it / 24.0 }
+        val guesses = doubleArrayOf(5.0, 6.0, 12.0, 13.0, 18.0, 18.0, 18.0).map { it / 24.0 }
         var fajr = angleTime(180.0 - fajrAngle, guesses[0])
         val sunrise = angleTime(180.0 - SUNRISE_ANGLE, guesses[1])
         val dhuhr = noon(guesses[2])
