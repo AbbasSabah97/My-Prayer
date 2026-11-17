@@ -23,6 +23,11 @@ object PrayerWidgetUpdater {
 }
 
 class PrayerTimesWidgetProvider : AppWidgetProvider() {
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        PrayerWidgetUpdater.update(context)
+    }
+
     override fun onUpdate(context: Context, manager: AppWidgetManager, appWidgetIds: IntArray) {
         val settings = PrayerSettingsStore.load(context)
         val city = PrayerCities.byId(settings.cityId)
@@ -70,10 +75,13 @@ class PrayerTimesWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (intent.action == Intent.ACTION_DATE_CHANGED ||
-            intent.action == Intent.ACTION_TIME_CHANGED ||
-            intent.action == Intent.ACTION_TIMEZONE_CHANGED) {
-            PrayerWidgetUpdater.update(context)
+        when (intent.action) {
+            Intent.ACTION_DATE_CHANGED,
+            Intent.ACTION_TIME_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED,
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_MY_PACKAGE_REPLACED,
+            AppWidgetManager.ACTION_APPWIDGET_UPDATE -> PrayerWidgetUpdater.update(context)
         }
     }
 }
