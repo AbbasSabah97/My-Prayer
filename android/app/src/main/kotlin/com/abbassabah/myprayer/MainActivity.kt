@@ -496,7 +496,7 @@ private fun MonthScreen(
             items((0 until 30).toList()) { offset ->
                 val date = today.plusDays(offset.toLong())
                 MonthDayCard(offset + 1, date,
-                    PrayerCalculator.schedule(date, latitude, longitude, zone, settings))
+                    PrayerCalculator.schedule(date, latitude, longitude, zone, settings), settings)
             }
             item {
                 Text("نهاية جدول الثلاثين يومًا", modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -508,7 +508,7 @@ private fun MonthScreen(
 
 
 @Composable
-private fun MonthDayCard(dayNumber: Int, date: LocalDate, schedule: DailySchedule?) {
+private fun MonthDayCard(dayNumber: Int, date: LocalDate, schedule: DailySchedule?, settings: PrayerSettings) {
     Panel(padding = 15.dp, cornerRadius = 20.dp) {
         Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
