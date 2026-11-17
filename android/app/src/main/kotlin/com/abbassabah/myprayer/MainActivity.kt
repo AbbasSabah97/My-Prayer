@@ -153,6 +153,26 @@ private fun PrayerApp() {
     }
 
     LaunchedEffect(Unit) {
+        if (settings.cityId == "auto") {
+            val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            if (fine || coarse) {
+                requestCurrentLocation(context) { lat, lon ->
+                    latitude = lat
+                    longitude = lon
+                    locationLabel = "موقعي الحالي"
+                    PrayerLocationStore.save(context, lat, lon)
+                }
+            } else {
+                locationPermissionLauncher.launch(arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ))
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
         while (true) {
             nowMillis = System.currentTimeMillis()
             notificationStatus = PrayerNotificationScheduler.notificationsAllowed(context)
