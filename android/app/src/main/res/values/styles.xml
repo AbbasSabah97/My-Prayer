@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.MyPrayer" parent="android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:fontFamily">sans</item>
+        <item name="android:fontFamily">@font/noto_sans_arabic_ui</item>
         <item name="android:colorAccent">#145E5E</item>
         <item name="android:navigationBarColor">#F9F8F2</item>
         <item name="android:statusBarColor">#F9F8F2</item>

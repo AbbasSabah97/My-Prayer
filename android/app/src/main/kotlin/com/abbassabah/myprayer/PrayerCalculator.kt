@@ -86,9 +86,9 @@ object PrayerCalculator {
             }
             events += TimeEvent(entry.prayer.name, entry.prayer.title, entry.prayer.symbol, entry.time, detail, entry.prayer)
         }
-        events += TimeEvent("sunrise", "شروق الشمس", "☀", sunriseDate, "حدث فلكي — ليس صلاة")
-        events += TimeEvent("sunset", "غروب الشمس", "◒", sunsetRounded, "الغروب الفلكي — قد يسبق المغرب")
-        events += TimeEvent("midnight", "منتصف الليل الشرعي", "☾", midnight, "منتصف الغروب والفجر التالي")
+        events += TimeEvent("sunrise", "شروق الشمس", "sunrise", sunriseDate, "حدث فلكي — ليس صلاة")
+        events += TimeEvent("sunset", "غروب الشمس", "sunset", sunsetRounded, "الغروب الفلكي — قد يسبق المغرب")
+        events += TimeEvent("midnight", "منتصف الليل الشرعي", "moon.zzz.fill", midnight, "منتصف الغروب والفجر التالي")
 
         return DailySchedule(date, prayerTimes, sunriseDate, sunsetRounded, midnight,
             startDate, preferredDate, endDate, conventional, useVirtue,

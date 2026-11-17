@@ -497,6 +497,11 @@ enum Palette {
     static let gold=Color(red:0.83,green:0.65,blue:0.36)
     static let pale=Color(red:0.91,green:0.94,blue:0.92)
 }
+extension Font {
+    static func app(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .custom("NotoSansArabicUI-Regular", size: size).weight(weight)
+    }
+}
 struct Panel<Content:View>:View {
     @ViewBuilder let content:Content
     var body:some View {
@@ -514,6 +519,7 @@ struct MyPrayerApp:App {
         WindowGroup {
             PrayerTabs()
                 .environmentObject(store)
+                .font(.app(16))
                 .environment(\.layoutDirection,.rightToLeft)
                 .preferredColorScheme(.light)
                 .task { store.launch() }
@@ -535,11 +541,11 @@ struct PrayerTabs:View {
     var body:some View {
         TabView {
             NavigationStack { TodayScreen() }
-                .tabItem { Label("الصلاة",systemImage:"moon.stars.fill") }
+                .tabItem { Label("الصلاة",systemImage:"moon.stars.fill").font(.app(10)) }
             NavigationStack { AlertsScreen() }
-                .tabItem { Label("التنبيهات",systemImage:"bell.badge.fill") }
+                .tabItem { Label("التنبيهات",systemImage:"bell.badge.fill").font(.app(10)) }
             NavigationStack { OptionsScreen() }
-                .tabItem { Label("الإعدادات",systemImage:"gearshape.fill") }
+                .tabItem { Label("الإعدادات",systemImage:"gearshape.fill").font(.app(10)) }
         }.tint(Palette.teal)
     }
 }
@@ -551,24 +557,24 @@ struct TodayScreen:View {
             VStack(alignment:.leading,spacing:20) {
                 HStack {
                     VStack(alignment:.leading,spacing:5) {
-                        Text("صلاتي").font(.system(size:34,weight:.heavy,design:.rounded))
+                        Text("صلاتي").font(.app(34,weight:.heavy))
                             .foregroundStyle(Palette.dark)
                         Text(store.dayText(.now))
-                            .font(.system(size:13)).foregroundStyle(.secondary)
+                            .font(.app(13)).foregroundStyle(.secondary)
                     }
                     Spacer()
                     NavigationLink(destination:OptionsScreen()) {
                         Label(store.cityName,systemImage:"location.fill")
-                            .lineLimit(1).font(.system(size:12,weight:.medium))
+                            .lineLimit(1).font(.app(12,weight:.medium))
                             .padding(10).background(Palette.pale,in:Capsule())
                     }
                 }
                 NextPrayerCard()
                 HStack {
-                    Text("مواقيت الصلاة والشمس").font(.system(size:19,weight:.bold))
+                    Text("مواقيت الصلاة والشمس").font(.app(19,weight:.bold))
                     Spacer()
                     Button("جدول 30 يوماً") { monthly=true }
-                        .font(.system(size:12,weight:.semibold))
+                        .font(.app(12,weight:.semibold))
                 }.foregroundStyle(Palette.teal)
                 Panel {
                     VStack(spacing:0) {
@@ -580,13 +586,13 @@ struct TodayScreen:View {
                                     .foregroundStyle(Palette.teal)
                                     .background(Palette.pale,in:RoundedRectangle(cornerRadius:12))
                                 VStack(alignment:.leading,spacing:4) {
-                                    Text(event.title).font(.system(size:17,weight:.bold))
+                                    Text(event.title).font(.app(17,weight:.bold))
                                     Text(event.prayer == nil ? event.detail : event.detail + (event.prayer.map { store.settings.active($0) ? " · التنبيه مفعّل" : " · التنبيه متوقف" } ?? ""))
-                                        .font(.system(size:11)).foregroundStyle(.secondary)
+                                        .font(.app(11)).foregroundStyle(.secondary)
                                 }
                                 Spacer()
                                 Text(store.timeText(event.date))
-                                    .font(.system(size:15,weight:.medium))
+                                    .font(.app(15,weight:.medium))
                             }.foregroundStyle(Palette.dark)
                             if event.id != events.last?.id { Divider().padding(.vertical,8) }
                         }
@@ -600,33 +606,33 @@ struct TodayScreen:View {
                     Panel {
                         VStack(alignment:.leading,spacing:12) {
                             Text("فضيلة العصر وفق زيادة الظل")
-                                .font(.system(size:16,weight:.bold)).foregroundStyle(Palette.teal)
+                                .font(.app(16,weight:.bold)).foregroundStyle(Palette.teal)
                             HStack {
                                 VStack(alignment:.leading,spacing:4) {
-                                    Text("البداية ٢/٧").font(.system(size:12)).foregroundStyle(.secondary)
-                                    Text(store.timeText(start)).font(.system(size:13,weight:.semibold))
+                                    Text("البداية ٢/٧").font(.app(12)).foregroundStyle(.secondary)
+                                    Text(store.timeText(start)).font(.app(13,weight:.semibold))
                                 }
                                 Spacer()
                                 VStack(alignment:.leading,spacing:4) {
-                                    Text("الأفضل ٤/٧").font(.system(size:12)).foregroundStyle(.secondary)
-                                    Text(store.timeText(preferred)).font(.system(size:13,weight:.semibold))
+                                    Text("الأفضل ٤/٧").font(.app(12)).foregroundStyle(.secondary)
+                                    Text(store.timeText(preferred)).font(.app(13,weight:.semibold))
                                 }
                                 Spacer()
                                 VStack(alignment:.leading,spacing:4) {
-                                    Text("النهاية ٦/٧").font(.system(size:12)).foregroundStyle(.secondary)
-                                    Text(store.timeText(end)).font(.system(size:13,weight:.semibold))
+                                    Text("النهاية ٦/٧").font(.app(12)).foregroundStyle(.secondary)
+                                    Text(store.timeText(end)).font(.app(13,weight:.semibold))
                                 }
                             }.foregroundStyle(Palette.dark)
                             Text("طريقة المِثل: \(store.timeText(day.conventionalAsr)). وقت الفضيلة ليس بداية جواز العصر، بل تجوز بعد الظهر مع مراعاة الترتيب.")
-                                .font(.system(size:12)).foregroundStyle(.secondary)
+                                .font(.app(12)).foregroundStyle(.secondary)
                         }
                     }
                 }
                 Label("الفجر والمغرب محسوبان فلكيًا وفق زوايا تقديرية. يلزم التحقق من التقويم المحلي؛ لا يمثل هذا تقويمًا رسميًا للمرجعية أو لحقيبة المؤمن.",
                       systemImage:"info.circle")
-                    .font(.system(size:12)).foregroundStyle(.secondary)
+                    .font(.app(12)).foregroundStyle(.secondary)
                 if let message=store.locationMessage {
-                    Text(message).font(.system(size:12)).foregroundStyle(.orange)
+                    Text(message).font(.app(12)).foregroundStyle(.orange)
                 }
             }.padding(20)
         }
@@ -644,20 +650,20 @@ struct NextPrayerCard:View {
                 HStack {
                     VStack(alignment:.leading,spacing:7) {
                         Label("الصلاة القادمة",systemImage:"sparkles")
-                            .font(.system(size:13)).foregroundStyle(.white.opacity(0.84))
+                            .font(.app(13)).foregroundStyle(.white.opacity(0.84))
                         Text(event?.prayer.title ?? "—")
-                            .font(.system(size:40,weight:.heavy)).foregroundStyle(.white)
+                            .font(.app(40,weight:.heavy)).foregroundStyle(.white)
                         Text(event.map{store.timeText($0.date)} ?? "—")
-                            .font(.system(size:17)).foregroundStyle(.white.opacity(0.88))
+                            .font(.app(17)).foregroundStyle(.white.opacity(0.88))
                     }
                     Spacer()
                     Image(systemName:"moon.stars.fill")
-                        .font(.system(size:49,weight:.ultraLight))
+                        .font(.app(49,weight:.ultraLight))
                         .foregroundStyle(Palette.gold)
                 }
                 Rectangle().fill(.white.opacity(0.2)).frame(height:1)
                 HStack {
-                    Text("الوقت المتبقي").font(.system(size:13))
+                    Text("الوقت المتبقي").font(.app(13))
                     Spacer()
                     Text(event.map{countdown($0.date.timeIntervalSince(context.date))} ?? "—")
                         .font(.system(size:23,weight:.bold,design:.monospaced))
@@ -686,9 +692,9 @@ struct MonthScreen:View {
                         Image(systemName:"calendar")
                             .foregroundStyle(Palette.teal)
                         VStack(alignment:.leading,spacing:3) {
-                            Text("جميع الأيام الثلاثين").font(.system(size:18,weight:.bold))
+                            Text("جميع الأيام الثلاثين").font(.app(18,weight:.bold))
                             Text("اسحب إلى الأعلى والأسفل لعرض الأيام كاملة؛ المسافات الأفقية لم تعد مطلوبة.")
-                                .font(.system(size:11)).foregroundStyle(.secondary)
+                                .font(.app(11)).foregroundStyle(.secondary)
                         }
                     }.padding(.bottom,4)
                     ForEach(0..<30,id:\.self) { offset in
@@ -698,7 +704,7 @@ struct MonthScreen:View {
                         }
                     }
                     Text("نهاية جدول الثلاثين يومًا")
-                        .font(.system(size:13,weight:.medium))
+                        .font(.app(13,weight:.medium))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth:.infinity)
                         .padding(.vertical,18)
@@ -729,17 +735,17 @@ struct MonthDayCard:View {
             HStack {
                 VStack(alignment:.leading,spacing:4) {
                     Text(store.dayText(date))
-                        .font(.system(size:15,weight:.bold))
+                        .font(.app(15,weight:.bold))
                         .foregroundStyle(Palette.dark)
                     Text(store.settings.method == "haqiba"
                          ? "حساب متوافق مع إعدادات حقيبة المؤمن المستخرجة"
                          : "طريقة الحساب المختارة")
-                        .font(.system(size:10))
+                        .font(.app(10))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
                 Text("\(dayNumber) / 30")
-                    .font(.system(size:12,weight:.semibold))
+                    .font(.app(12,weight:.semibold))
                     .monospacedDigit()
                     .foregroundStyle(Palette.teal)
                     .padding(.horizontal,11).padding(.vertical,7)
@@ -750,15 +756,15 @@ struct MonthDayCard:View {
                     ForEach(rows) { row in
                         HStack(spacing:6) {
                             Image(systemName:row.icon)
-                                .font(.system(size:13))
+                                .font(.app(13))
                                 .frame(width:20)
                                 .foregroundStyle(Palette.aqua)
                             VStack(alignment:.leading,spacing:3) {
                                 Text(row.title)
-                                    .font(.system(size:11,weight:.medium))
+                                    .font(.app(11,weight:.medium))
                                     .foregroundStyle(.secondary)
                                 Text(store.timeText(row.date))
-                                    .font(.system(size:13,weight:.semibold))
+                                    .font(.app(13,weight:.semibold))
                                     .foregroundStyle(Palette.dark)
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.8)
@@ -772,7 +778,7 @@ struct MonthDayCard:View {
                 }
             } else {
                 Text("تعذر حساب مواقيت هذا اليوم؛ تحقق من إعدادات الموقع والزوايا.")
-                    .font(.system(size:12)).foregroundStyle(.orange)
+                    .font(.app(12)).foregroundStyle(.orange)
             }
         }
         .padding(15)
@@ -786,15 +792,15 @@ struct AlertsScreen:View {
     var body:some View {
         ScrollView {
             VStack(alignment:.leading,spacing:17) {
-                Text("تنبيهات الصلاة").font(.system(size:30,weight:.bold))
+                Text("تنبيهات الصلاة").font(.app(30,weight:.bold))
                     .foregroundStyle(Palette.dark)
                 Text("اختر الصلوات التي تريد تذكيراً عند دخول وقتها.")
-                    .font(.system(size:13)).foregroundStyle(.secondary)
+                    .font(.app(13)).foregroundStyle(.secondary)
                 Panel {
                     VStack(alignment:.leading,spacing:12) {
                         Label(store.notificationsAllowed ? "الإشعارات مفعلة" : "الإشعارات غير مفعلة",
                               systemImage:store.notificationsAllowed ? "checkmark.seal.fill":"bell.slash.fill")
-                            .font(.system(size:16,weight:.semibold))
+                            .font(.app(16,weight:.semibold))
                         if !store.notificationsAllowed {
                             Button("السماح بالإشعارات") {
                                 Task { await store.enableNotifications() }
@@ -802,12 +808,12 @@ struct AlertsScreen:View {
                         }
                         Button("اختبار الإشعار بعد 8 ثوانٍ") {
                             Task { await store.testNotification() }
-                        }.font(.system(size:13))
+                        }.font(.app(13))
                         Text("يتم جدولة حتى 60 إشعاراً قادماً وتجديدها عند فتح التطبيق. يلزم فتح التطبيق دورياً لاستمرار التنبيهات.")
-                            .font(.system(size:12)).foregroundStyle(.secondary)
+                            .font(.app(12)).foregroundStyle(.secondary)
                     }.foregroundStyle(Palette.teal)
                 }
-                Text("الصلوات").font(.headline).foregroundStyle(Palette.dark)
+                Text("الصلوات").font(.app(17,weight:.semibold)).foregroundStyle(Palette.dark)
                 Panel {
                     VStack(spacing:15) {
                         ForEach(Prayer.allCases) { prayer in
@@ -821,7 +827,7 @@ struct AlertsScreen:View {
                         }
                     }
                 }
-                Text("التذكير المسبق").font(.headline).foregroundStyle(Palette.dark)
+                Text("التذكير المسبق").font(.app(17,weight:.semibold)).foregroundStyle(Palette.dark)
                 Panel {
                     Picker("وقت التذكير",selection:Binding(
                         get:{store.settings.advance},
@@ -833,7 +839,7 @@ struct AlertsScreen:View {
                         Text("قبل 15 دقيقة").tag(15)
                     }.tint(Palette.teal)
                 }
-                Text("الصوت").font(.headline).foregroundStyle(Palette.dark)
+                Text("الصوت").font(.app(17,weight:.semibold)).foregroundStyle(Palette.dark)
                 Panel {
                     Picker("صوت التنبيه",selection:Binding(
                         get:{store.settings.sound},
@@ -844,7 +850,7 @@ struct AlertsScreen:View {
                         Text("نغمة واضحة").tag("clear")
                     }.tint(Palette.teal)
                     Text("أصوات إشعارات قصيرة؛ تشغيل الأذان الكامل في الخلفية غير مضمون على iOS.")
-                        .font(.system(size:12)).foregroundStyle(.secondary)
+                        .font(.app(12)).foregroundStyle(.secondary)
                 }
             }.padding(20)
         }.background(Palette.background.ignoresSafeArea())
@@ -860,8 +866,8 @@ struct OptionsScreen:View {
     var body:some View {
         ScrollView {
             VStack(alignment:.leading,spacing:17) {
-                Text("الإعدادات").font(.system(size:30,weight:.bold)).foregroundStyle(Palette.dark)
-                Text("المدينة والموقع").font(.headline).foregroundStyle(Palette.dark)
+                Text("الإعدادات").font(.app(30,weight:.bold)).foregroundStyle(Palette.dark)
+                Text("المدينة والموقع").font(.app(17,weight:.semibold)).foregroundStyle(Palette.dark)
                 Panel {
                     VStack(alignment:.leading,spacing:11) {
                         Picker("المدينة",selection:Binding(
@@ -875,10 +881,10 @@ struct OptionsScreen:View {
                             Button("تحديث الموقع") { store.locate() }.foregroundStyle(Palette.teal)
                         }
                         Text("عند عدم منح إذن الموقع، يتم استخدام بغداد أو آخر موقع محفوظ.")
-                            .font(.system(size:12)).foregroundStyle(.secondary)
+                            .font(.app(12)).foregroundStyle(.secondary)
                     }
                 }
-                Text("طريقة حساب المواقيت").font(.headline).foregroundStyle(Palette.dark)
+                Text("طريقة حساب المواقيت").font(.app(17,weight:.semibold)).foregroundStyle(Palette.dark)
                 Panel {
                     Picker("طريقة الحساب",selection:Binding(
                         get:{store.settings.method},
@@ -889,13 +895,13 @@ struct OptionsScreen:View {
                     Text(store.settings.method == "haqiba"
                          ? "إعدادات APK المكتشفة: الفجر 18°، المغرب 4°، العشاء 14°، العصر ظل 1، منتصف الليل بين الغروب والفجر التالي. المقارنة مع جهاز حقيبة المؤمن تتأثر بتصحيحات المستخدم."
                          : "اختيار طريقة الحساب يحدد الزوايا الابتدائية. هذه إعدادات فلكية وليست تقويمًا رسميًا عن المرجعية.")
-                        .font(.system(size:12)).foregroundStyle(.secondary)
+                        .font(.app(12)).foregroundStyle(.secondary)
                 }
                 HStack {
-                    Text("الزوايا الفلكية (بالدرجات)").font(.headline)
+                    Text("الزوايا الفلكية (بالدرجات)").font(.app(17,weight:.semibold))
                     Spacer()
                     Button("استعادة الافتراضي") { store.edit{$0.resetAngles()} }
-                        .font(.system(size:12,weight:.semibold))
+                        .font(.app(12,weight:.semibold))
                 }.foregroundStyle(Palette.dark)
                 Panel {
                     VStack(alignment:.leading,spacing:14) {
@@ -905,12 +911,12 @@ struct OptionsScreen:View {
                         Divider()
                         angleControl(.isha,title:"زاوية العشاء",range:10...24)
                         Text("يمكن تخصيص زوايا الطريقة المختارة، لكن أي تغيير عن 18° و4° و14° في وضع حقيبة المؤمن سيغير درجة التطابق. زاوية 0° للمغرب تعادل الغروب الفلكي.")
-                            .font(.system(size:12)).foregroundStyle(.secondary)
+                            .font(.app(12)).foregroundStyle(.secondary)
                         Text("تغيير الزوايا يؤثر على أوقات الصلاة والعد التنازلي والتنبيهات ومنتصف الليل الشرعي.")
-                            .font(.system(size:12)).foregroundStyle(.secondary)
+                            .font(.app(12)).foregroundStyle(.secondary)
                     }
                 }
-                Text("اختيار وقت العصر").font(.headline).foregroundStyle(Palette.dark)
+                Text("اختيار وقت العصر").font(.app(17,weight:.semibold)).foregroundStyle(Palette.dark)
                 Panel {
                     VStack(alignment:.leading,spacing:9) {
                         Picker("التوقيت المعروض للعصر",selection:Binding(
@@ -921,10 +927,10 @@ struct OptionsScreen:View {
                             Text("حساب ظل المثل — ١").tag("shadow")
                         }.tint(Palette.teal)
                         Text("اختيار بداية فضيلة العصر لا يعني أنها بداية جواز صلاة العصر؛ مع مراعاة أداء الظهر قبلها.")
-                            .font(.system(size:12)).foregroundStyle(.secondary)
+                            .font(.app(12)).foregroundStyle(.secondary)
                     }
                 }
-                Text("تصحيح الدقائق لكل صلاة").font(.headline).foregroundStyle(Palette.dark)
+                Text("تصحيح الدقائق لكل صلاة").font(.app(17,weight:.semibold)).foregroundStyle(Palette.dark)
                 Panel {
                     VStack(spacing:13) {
                         ForEach(Prayer.allCases) { p in
@@ -936,7 +942,7 @@ struct OptionsScreen:View {
                                     Text(p.title)
                                     Spacer()
                                     Text("\(store.settings.correction(p)) دقيقة")
-                                        .font(.system(size:13)).foregroundStyle(Palette.teal)
+                                        .font(.app(13)).foregroundStyle(Palette.teal)
                                 }
                             }
                             if p != .isha { Divider() }
@@ -944,7 +950,7 @@ struct OptionsScreen:View {
                     }
                 }
                 Text("حسابات فلكية محلية تقديرية؛ ليست جدولًا رسميًا صادرًا عن مكتب السيد السيستاني أو تطبيق حقيبة المؤمن. تحقق من العلامات الشرعية والتقويم المحلي.")
-                    .font(.system(size:12)).foregroundStyle(.secondary)
+                    .font(.app(12)).foregroundStyle(.secondary)
             }.padding(20)
         }.background(Palette.background.ignoresSafeArea())
     }
@@ -959,7 +965,7 @@ struct OptionsScreen:View {
                 Text(title)
                 Spacer()
                 Text(String(format:"%.1f°",store.settings.angle(prayer)))
-                    .font(.system(size:14,weight:.semibold))
+                    .font(.app(14,weight:.semibold))
                     .foregroundStyle(Palette.teal)
             }
         }

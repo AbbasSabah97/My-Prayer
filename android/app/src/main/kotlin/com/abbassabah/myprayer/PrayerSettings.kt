@@ -4,8 +4,8 @@ import android.content.Context
 import org.json.JSONObject
 
 enum class PrayerKey(val title: String, val symbol: String) {
-    FAJR("الفجر", "☀"), DHUHR("الظهر", "☼"), ASR("العصر", "◉"),
-    MAGHRIB("المغرب", "◐"), ISHA("العشاء", "☾")
+    FAJR("الفجر", "sunrise.fill"), DHUHR("الظهر", "sun.max.fill"), ASR("العصر", "sun.haze.fill"),
+    MAGHRIB("المغرب", "sunset.fill"), ISHA("العشاء", "moon.stars.fill")
 }
 data class CityInfo(val id: String, val name: String, val latitude: Double, val longitude: Double)
 object PrayerCities {

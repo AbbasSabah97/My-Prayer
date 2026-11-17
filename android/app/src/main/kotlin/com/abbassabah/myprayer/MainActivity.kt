@@ -18,11 +18,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -30,9 +33,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -53,8 +59,10 @@ private val AppDark = Color(0xFF1A3033)
 private val AppTeal = Color(0xFF145E5E)
 private val AppAqua = Color(0xFF2E827D)
 private val AppGold = Color(0xFFD4A65C)
-private val AppPale = Color(0xFFE8EFEB)
-private val AppMuted = Color(0xFF687878)
+private val AppPale = Color(0xFFE8F0EB)
+private val AppMuted = Color(0xFF77777C)
+private val AppFontFamily = FontFamily(Font(R.font.noto_sans_arabic_ui, weight = FontWeight.Normal))
+private val AppTypography = Typography(defaultFontFamily = AppFontFamily)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,7 +79,7 @@ class MainActivity : ComponentActivity() {
                 secondary = AppAqua, background = AppBackground,
                 surface = Color.White, onSurface = AppDark
             )
-            MaterialTheme(colorScheme = scheme) { PrayerApp() }
+            MaterialTheme(colorScheme = scheme, typography = AppTypography) { PrayerApp() }
         }
     }
 }
@@ -209,13 +217,35 @@ private fun PrayerApp() {
             Scaffold(
                 containerColor = AppBackground,
                 bottomBar = {
-                    NavigationBar(containerColor = Color.White, tonalElevation = 8.dp) {
-                        NavigationBarItem(selectedTab == "today", { selectedTab = "today" },
-                            icon = { Text("☾", fontSize = 21.sp) }, label = { Text("الصلاة") })
-                        NavigationBarItem(selectedTab == "alerts", { selectedTab = "alerts" },
-                            icon = { Text("♧", fontSize = 20.sp) }, label = { Text("التنبيهات") })
-                        NavigationBarItem(selectedTab == "settings", { selectedTab = "settings" },
-                            icon = { Text("⚙", fontSize = 20.sp) }, label = { Text("الإعدادات") })
+                    NavigationBar(containerColor = Color.White, tonalElevation = 0.dp) {
+                        val navColors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = AppTeal,
+                            unselectedIconColor = AppMuted,
+                            selectedTextColor = AppTeal,
+                            unselectedTextColor = AppMuted,
+                            indicatorColor = Color.Transparent
+                        )
+                        NavigationBarItem(
+                            selected = selectedTab == "today",
+                            onClick = { selectedTab = "today" },
+                            icon = { AppSymbol("moon.stars.fill", Modifier.size(23.dp), if (selectedTab == "today") AppTeal else AppMuted) },
+                            label = { Text("الصلاة", fontSize = 10.sp) },
+                            colors = navColors
+                        )
+                        NavigationBarItem(
+                            selected = selectedTab == "alerts",
+                            onClick = { selectedTab = "alerts" },
+                            icon = { AppSymbol("bell.badge.fill", Modifier.size(23.dp), if (selectedTab == "alerts") AppTeal else AppMuted) },
+                            label = { Text("التنبيهات", fontSize = 10.sp) },
+                            colors = navColors
+                        )
+                        NavigationBarItem(
+                            selected = selectedTab == "settings",
+                            onClick = { selectedTab = "settings" },
+                            icon = { AppSymbol("gearshape.fill", Modifier.size(23.dp), if (selectedTab == "settings") AppTeal else AppMuted) },
+                            label = { Text("الإعدادات", fontSize = 10.sp) },
+                            colors = navColors
+                        )
                     }
                 }
             ) { padding ->
@@ -276,42 +306,71 @@ private fun TodayScreen(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("صلاتي", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = AppDark)
+                    Text("صلاتي", fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, color = AppDark)
                     Text(formatDay(now.toLocalDate()), fontSize = 13.sp, color = AppMuted)
                 }
-                Column(horizontalAlignment = Alignment.End) {
-                    TextButton(onClick = onSettings) {
-                        Text("⌖  $cityName", maxLines = 1, overflow = TextOverflow.Ellipsis, color = AppTeal)
-                    }
-                    TextButton(onClick = onLocation) { Text("تحديث الموقع", fontSize = 11.sp, color = AppAqua) }
+                Row(
+                    modifier = Modifier
+                        .background(AppPale, RoundedCornerShape(50.dp))
+                        .clickable(onClick = onSettings)
+                        .padding(horizontal = 11.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AppSymbol("location.fill", Modifier.size(14.dp), AppTeal)
+                    Spacer(Modifier.width(5.dp))
+                    Text(cityName, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        color = AppTeal, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                 }
             }
         }
         item { NextPrayerCard(now, nextPrayer) }
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("مواقيت الصلاة والشمس", fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                Text("مواقيت الصلاة والشمس", fontSize = 19.sp, fontWeight = FontWeight.Bold,
                     color = AppDark, modifier = Modifier.weight(1f))
-                TextButton(onClick = onMonth) { Text("جدول 30 يوماً", color = AppTeal, fontSize = 12.sp) }
+                TextButton(onClick = onMonth) {
+                    Text("جدول 30 يوماً", color = AppTeal, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
         }
-        if (daily == null) item { Panel { Text("لم يمكن حساب المواقيت لهذا الموقع. تحقق من إحداثيات المدينة.") } }
-        else {
-            items(daily.events, key = { it.id }) { event -> TimeEventRow(event) }
+        if (daily == null) {
+            item { Panel { Text("لم يمكن حساب المواقيت لهذا الموقع. تحقق من إحداثيات المدينة.") } }
+        } else {
+            item {
+                Panel {
+                    Column {
+                        daily.events.forEachIndexed { index, event ->
+                            TimeEventRow(event)
+                            if (index != daily.events.lastIndex) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    color = AppPale
+                                )
+                            }
+                        }
+                    }
+                }
+            }
             item { AsrVirtuePanel(daily) }
         }
         item {
-            Text("الأوقات حسابات فلكية تقديرية. زاوية الفجر والمغرب والعشاء لا تغني عن التحقق من العلامات الشرعية والتقويم المحلي.",
-                fontSize = 11.sp, color = AppMuted, lineHeight = 17.sp)
-            if (locationMessage != null) {
-                Spacer(Modifier.height(6.dp))
-                Text(locationMessage, color = Color(0xFFB56A26), fontSize = 12.sp)
+            Row(verticalAlignment = Alignment.Top) {
+                AppSymbol("info.circle", Modifier.size(16.dp), AppMuted)
+                Spacer(Modifier.width(6.dp))
+                Column {
+                    Text("الأوقات حسابات فلكية تقديرية. زاوية الفجر والمغرب والعشاء لا تغني عن التحقق من العلامات الشرعية والتقويم المحلي.",
+                        fontSize = 11.sp, color = AppMuted, lineHeight = 16.sp)
+                    if (locationMessage != null) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(locationMessage, color = Color(0xFFB56A26), fontSize = 12.sp)
+                    }
+                }
             }
         }
     }
@@ -325,24 +384,33 @@ private fun NextPrayerCard(now: ZonedDateTime, nextPrayer: PrayerEntry?) {
     val hours = remaining / 3600
     val minutes = (remaining % 3600) / 60
     val seconds = remaining % 60
-    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(25.dp),
-        colors = CardDefaults.cardColors(containerColor = AppTeal)) {
-        Column(Modifier.background(Brush.linearGradient(listOf(AppTeal, AppAqua))).padding(22.dp)) {
+    Box(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(26.dp))
+            .background(Brush.linearGradient(listOf(AppTeal, AppAqua)))
+            .padding(24.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("✦  الصلاة القادمة", color = Color.White.copy(alpha = .84f), fontSize = 13.sp)
-                    Text(nextPrayer?.prayer?.title ?: "—", color = Color.White, fontSize = 36.sp, fontWeight = FontWeight.ExtraBold)
-                    Text(nextPrayer?.let { formatTime(it.time) } ?: "—", color = Color.White.copy(alpha = .9f), fontSize = 17.sp)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        AppSymbol("sparkles", Modifier.size(16.dp), Color.White.copy(alpha = .84f))
+                        Spacer(Modifier.width(6.dp))
+                        Text("الصلاة القادمة", color = Color.White.copy(alpha = .84f), fontSize = 13.sp)
+                    }
+                    Text(nextPrayer?.prayer?.title ?: "—", color = Color.White,
+                        fontSize = 40.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(nextPrayer?.let { formatTime(it.time) } ?: "—",
+                        color = Color.White.copy(alpha = .9f), fontSize = 17.sp)
                 }
-                Text("☾", color = AppGold, fontSize = 56.sp)
+                AppSymbol("moon.stars.fill", Modifier.size(49.dp), AppGold)
             }
-            Spacer(Modifier.height(16.dp))
-            HorizontalDivider(color = Color.White.copy(alpha = .25f))
-            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(color = Color.White.copy(alpha = .2f))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("الوقت المتبقي", color = Color.White, fontSize = 13.sp, modifier = Modifier.weight(1f))
                 Text(String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds),
-                    color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace)
             }
         }
     }
@@ -350,20 +418,22 @@ private fun NextPrayerCard(now: ZonedDateTime, nextPrayer: PrayerEntry?) {
 
 @Composable
 private fun TimeEventRow(event: TimeEvent) {
-    Panel {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(43.dp).background(AppPale, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                Text(event.symbol, color = AppTeal, fontSize = 23.sp)
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(event.title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppDark)
-                Text(event.detail, fontSize = 10.sp, color = AppMuted, lineHeight = 14.sp)
-            }
-            Text(formatTime(event.time), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = AppDark)
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier.size(44.dp).background(AppPale, RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            AppSymbol(event.symbol, Modifier.size(22.dp), AppTeal)
         }
+        Spacer(Modifier.width(13.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(event.title, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = AppDark)
+            Text(event.detail, fontSize = 11.sp, color = AppMuted, lineHeight = 14.sp)
+        }
+        Text(formatTime(event.time), fontSize = 15.sp, fontWeight = FontWeight.Medium, color = AppDark)
     }
 }
+
 
 @Composable
 private fun AsrVirtuePanel(daily: DailySchedule) {
@@ -398,19 +468,30 @@ private fun MonthScreen(
     settings: PrayerSettings, onClose: () -> Unit
 ) {
     Column(Modifier.fillMaxSize().background(AppBackground)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("مواقيت 30 يوماً", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = AppDark)
-                Text("جميع الأيام — اسحب عموديًا لعرض الجدول كاملًا", fontSize = 11.sp, color = AppMuted)
-            }
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("مواقيت 30 يومًا", fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                color = AppDark, modifier = Modifier.weight(1f))
             TextButton(onClick = onClose) { Text("إغلاق", color = AppTeal) }
         }
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 15.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    AppSymbol("calendar", Modifier.size(21.dp), AppTeal)
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text("جميع الأيام الثلاثين", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = AppDark)
+                        Text("اسحب إلى الأعلى والأسفل لعرض الأيام كاملة؛ المسافات الأفقية لم تعد مطلوبة.",
+                            fontSize = 11.sp, color = AppMuted)
+                    }
+                }
+            }
             items((0 until 30).toList()) { offset ->
                 val date = today.plusDays(offset.toLong())
                 MonthDayCard(offset + 1, date,
@@ -424,14 +505,16 @@ private fun MonthScreen(
     }
 }
 
+
 @Composable
 private fun MonthDayCard(dayNumber: Int, date: LocalDate, schedule: DailySchedule?) {
-    Panel {
+    Panel(padding = 15.dp, cornerRadius = 20.dp) {
         Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(formatDay(date), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppDark)
-                    Text("حساب محلي — ${schedule?.events?.size ?: 0} أحداث", fontSize = 10.sp, color = AppMuted)
+                    Text(if (settings.method == "haqiba") "حساب متوافق مع إعدادات حقيبة المؤمن المستخرجة" else "طريقة الحساب المختارة",
+            fontSize = 10.sp, color = AppMuted)
                 }
                 Surface(color = AppPale, shape = RoundedCornerShape(50)) {
                     Text("$dayNumber / 30", modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
@@ -456,7 +539,7 @@ private fun MonthDayCard(dayNumber: Int, date: LocalDate, schedule: DailySchedul
 private fun TimeCell(event: TimeEvent, modifier: Modifier = Modifier) {
     Row(modifier.background(AppBackground, RoundedCornerShape(12.dp)).padding(9.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        Text(event.symbol, color = AppAqua, fontSize = 17.sp)
+        AppSymbol(event.symbol, Modifier.size(16.dp), AppAqua)
         Spacer(Modifier.width(6.dp))
         Column(Modifier.weight(1f)) {
             Text(event.title, color = AppMuted, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -474,22 +557,26 @@ private fun AlertsScreen(
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(15.dp)) {
         item {
-            Text("تنبيهات الصلاة", fontSize = 29.sp, fontWeight = FontWeight.Bold, color = AppDark)
+            Text("تنبيهات الصلاة", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = AppDark)
             Text("اختر الصلوات التي تريد تذكيرك عند دخول وقتها.", fontSize = 13.sp, color = AppMuted)
         }
         item {
             Panel {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(if (notificationsAllowed) "✓ الإشعارات مفعّلة" else "الإشعارات غير مفعّلة",
-                        color = AppTeal, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        AppSymbol(if (notificationsAllowed) "checkmark.seal.fill" else "bell.slash.fill",
+                            Modifier.size(20.dp), AppTeal)
+                        Spacer(Modifier.width(7.dp))
+                        Text(if (notificationsAllowed) "الإشعارات مفعّلة" else "الإشعارات غير مفعّلة",
+                            color = AppTeal, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    }
                     if (!notificationsAllowed) {
                         Button(onClick = onRequestNotifications, modifier = Modifier.fillMaxWidth()) {
                             Text("السماح بالإشعارات")
                         }
                     }
-                    Button(onClick = onTest, modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = AppAqua)) {
-                        Text("اختبار الإشعار بعد 8 ثوانٍ")
+                    TextButton(onClick = onTest) {
+                        Text("اختبار الإشعار بعد 8 ثوانٍ", color = AppTeal, fontSize = 13.sp)
                     }
                     if (Build.VERSION.SDK_INT >= 31) {
                         OutlinedButton(onClick = onRequestExactAlarm, modifier = Modifier.fillMaxWidth()) {
@@ -508,8 +595,11 @@ private fun AlertsScreen(
                     PrayerKey.values().forEachIndexed { index, prayer ->
                         Row(verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
-                            Text("${prayer.symbol}  ${prayer.title}", modifier = Modifier.weight(1f),
-                                color = AppDark, fontWeight = FontWeight.Medium)
+                            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                AppSymbol(prayer.symbol, Modifier.size(21.dp), AppTeal)
+                                Spacer(Modifier.width(9.dp))
+                                Text(prayer.title, color = AppDark, fontWeight = FontWeight.Medium)
+                            }
                             Switch(checked = settings.active(prayer),
                                 onCheckedChange = { onSettings(settings.copy(enabled = settings.enabled + (prayer to it))) })
                         }
@@ -521,28 +611,22 @@ private fun AlertsScreen(
         item { Text("التذكير المسبق", fontWeight = FontWeight.Bold, color = AppDark, fontSize = 17.sp) }
         item {
             Panel {
-                Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                    Text("وقت التنبيه", color = AppDark, fontWeight = FontWeight.Medium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.fillMaxWidth()) {
-                        listOf(0, 5, 10, 15).forEach { minutes ->
-                            FilterChip(selected = settings.advance == minutes,
-                                onClick = { onSettings(settings.copy(advance = minutes)) },
-                                label = { Text(if (minutes == 0) "عند الوقت" else "قبل $minutes د") })
-                        }
-                    }
-                }
+                DropdownField(
+                    "وقت التذكير",
+                    settings.advance.toString(),
+                    listOf("0" to "عند الصلاة فقط", "5" to "قبل 5 دقائق", "10" to "قبل 10 دقائق", "15" to "قبل 15 دقيقة")
+                ) { value -> onSettings(settings.copy(advance = value.toInt())) }
             }
         }
         item { Text("صوت التنبيه", fontWeight = FontWeight.Bold, color = AppDark, fontSize = 17.sp) }
         item {
             Panel {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("default" to "الافتراضي", "soft" to "نغمة هادئة", "clear" to "نغمة واضحة").forEach { (id, title) ->
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                            Text(title, modifier = Modifier.weight(1f), color = AppDark)
-                            RadioButton(selected = settings.sound == id, onClick = { onSettings(settings.copy(sound = id)) })
-                        }
-                    }
+                    DropdownField(
+                        "صوت التنبيه",
+                        settings.sound,
+                        listOf("default" to "الصوت الافتراضي", "soft" to "نغمة هادئة", "clear" to "نغمة واضحة")
+                    ) { value -> onSettings(settings.copy(sound = value)) }
                     Text("قنوات الصوت منفصلة في Android؛ إذا عدّلت صوت القناة من إعدادات النظام فسيُحترم اختيار النظام.",
                         color = AppMuted, fontSize = 11.sp)
                 }
@@ -626,12 +710,11 @@ private fun OptionsScreen(
         item {
             Panel {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("virtue" to "بداية فضيلة العصر — ظل ٢/٧", "shadow" to "حساب ظل المثل — ١").forEach { (id, label) ->
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                            Text(label, modifier = Modifier.weight(1f), color = AppDark, fontSize = 13.sp)
-                            RadioButton(settings.asrMode() == id, onClick = { onSettings(settings.copy(asrModeOverride = id)) })
-                        }
-                    }
+                    DropdownField(
+                        "التوقيت المعروض للعصر",
+                        settings.asrMode(),
+                        listOf("virtue" to "بداية فضيلة العصر — ظل ٢/٧", "shadow" to "حساب ظل المثل — ١")
+                    ) { value -> onSettings(settings.copy(asrModeOverride = value)) }
                     Text("بداية الفضيلة ليست بداية جواز العصر؛ تُراعى أولوية صلاة الظهر.", color = AppMuted, fontSize = 11.sp)
                 }
             }
@@ -672,7 +755,7 @@ private fun DropdownField(
         Box {
             OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
                 Text(current, modifier = Modifier.weight(1f), textAlign = TextAlign.Start, color = AppDark)
-                Text("⌄", color = AppTeal)
+                Icon(Icons.Filled.ExpandMore, contentDescription = null, tint = AppTeal)
             }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 options.forEach { (id, title) ->
@@ -697,13 +780,41 @@ private fun AngleStepper(title: String, value: Double, minimum: Double, maximum:
 }
 
 @Composable
-private fun Panel(content: @Composable ColumnScope.() -> Unit) {
+private fun AppSymbol(name: String, modifier: Modifier = Modifier, tint: Color = AppTeal) {
+    val image = when (name) {
+        "sunrise.fill", "sunrise" -> Icons.Filled.WbTwilight
+        "sun.max.fill" -> Icons.Filled.WbSunny
+        "sun.haze.fill" -> Icons.Filled.LightMode
+        "sunset.fill", "sunset" -> Icons.Filled.Brightness4
+        "moon.stars.fill" -> Icons.Filled.NightsStay
+        "moon.zzz.fill" -> Icons.Filled.Bedtime
+        "bell.badge.fill" -> Icons.Filled.Notifications
+        "bell.slash.fill" -> Icons.Filled.NotificationsOff
+        "checkmark.seal.fill" -> Icons.Filled.Verified
+        "gearshape.fill" -> Icons.Filled.Settings
+        "location.fill" -> Icons.Filled.LocationOn
+        "sparkles" -> Icons.Filled.AutoAwesome
+        "calendar" -> Icons.Filled.CalendarMonth
+        "info.circle" -> Icons.Filled.Info
+        "chevron.down" -> Icons.Filled.ExpandMore
+        else -> Icons.Filled.Circle
+    }
+    Icon(image, contentDescription = null, modifier = modifier, tint = tint)
+}
+
+@Composable
+private fun Panel(
+    padding: Dp = 18.dp,
+    cornerRadius: Dp = 21.dp,
+    content: @Composable ColumnScope.() -> Unit
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(cornerRadius),
         colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(1.dp, AppPale)
     ) {
-        Column(Modifier.padding(15.dp), content = content)
+        Column(Modifier.padding(padding), content = content)
     }
 }
 
