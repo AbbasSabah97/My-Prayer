@@ -82,6 +82,7 @@ object PrayerSettingsStore {
             put("asrModeOverride", settings.asrModeOverride ?: JSONObject.NULL)
         }
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(SETTINGS, root.toString()).apply()
+        PrayerWidgetUpdater.update(context)
     }
     private fun JSONObject.optionalDouble(key: String): Double? {
         if (!has(key) || isNull(key)) return null

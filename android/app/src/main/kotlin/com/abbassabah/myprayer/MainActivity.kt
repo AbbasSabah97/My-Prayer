@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -125,6 +126,7 @@ private fun PrayerApp() {
                 locationLabel = "موقعي الحالي"
                 locationMessage = null
                 PrayerLocationStore.save(context, lat, lon)
+                PrayerWidgetUpdater.update(context)
             }
         } else {
             locationMessage = "لم تمنح إذن الموقع. يمكنك اختيار مدينة عراقية يدويًا."
@@ -142,6 +144,7 @@ private fun PrayerApp() {
     val updateSettings: (PrayerSettings) -> Unit = { updated ->
         settings = updated
         PrayerSettingsStore.save(context, updated)
+        PrayerWidgetUpdater.update(context)
     }
 
     fun updateLocation() {
@@ -199,6 +202,7 @@ private fun PrayerApp() {
     }
 
     LaunchedEffect(Unit) {
+        PrayerWidgetUpdater.update(context)
         while (true) {
             nowMillis = System.currentTimeMillis()
             notificationStatus = PrayerNotificationScheduler.notificationsAllowed(context)
@@ -798,26 +802,35 @@ private fun AngleStepper(title: String, value: Double, minimum: Double, maximum:
 }
 
 @Composable
+private fun prayerDrawable(name: String): Int? = when (name) {
+    "sunrise.fill", "sunrise" -> R.drawable.ic_prayer_fajr
+    "sun.max.fill" -> R.drawable.ic_prayer_dhuhr
+    "sun.haze.fill" -> R.drawable.ic_prayer_asr
+    "sunset.fill", "sunset" -> R.drawable.ic_prayer_maghrib
+    "moon.stars.fill", "moon.zzz.fill" -> R.drawable.ic_prayer_isha
+    else -> null
+}
+
+@Composable
 private fun AppSymbol(name: String, modifier: Modifier = Modifier, tint: Color = AppTeal) {
-    val image = when (name) {
-        "sunrise.fill", "sunrise" -> Icons.Filled.WbTwilight
-        "sun.max.fill" -> Icons.Filled.WbSunny
-        "sun.haze.fill" -> Icons.Filled.LightMode
-        "sunset.fill", "sunset" -> Icons.Filled.Brightness4
-        "moon.stars.fill" -> Icons.Filled.NightsStay
-        "moon.zzz.fill" -> Icons.Filled.Bedtime
-        "bell.badge.fill" -> Icons.Filled.Notifications
-        "bell.slash.fill" -> Icons.Filled.NotificationsOff
-        "checkmark.seal.fill" -> Icons.Filled.Verified
-        "gearshape.fill" -> Icons.Filled.Settings
-        "location.fill" -> Icons.Filled.LocationOn
-        "sparkles" -> Icons.Filled.AutoAwesome
-        "calendar" -> Icons.Filled.CalendarMonth
-        "info.circle" -> Icons.Filled.Info
-        "chevron.down" -> Icons.Filled.ExpandMore
-        else -> Icons.Filled.Circle
+    val prayerIcon = prayerDrawable(name)
+    if (prayerIcon != null) {
+        Icon(painterResource(prayerIcon), contentDescription = null, modifier = modifier, tint = tint)
+    } else {
+        val image = when (name) {
+            "bell.badge.fill" -> Icons.Filled.Notifications
+            "bell.slash.fill" -> Icons.Filled.NotificationsOff
+            "checkmark.seal.fill" -> Icons.Filled.Verified
+            "gearshape.fill" -> Icons.Filled.Settings
+            "location.fill" -> Icons.Filled.LocationOn
+            "sparkles" -> Icons.Filled.AutoAwesome
+            "calendar" -> Icons.Filled.CalendarMonth
+            "info.circle" -> Icons.Filled.Info
+            "chevron.down" -> Icons.Filled.ExpandMore
+            else -> Icons.Filled.Circle
+        }
+        Icon(image, contentDescription = null, modifier = modifier, tint = tint)
     }
-    Icon(image, contentDescription = null, modifier = modifier, tint = tint)
 }
 
 @Composable
