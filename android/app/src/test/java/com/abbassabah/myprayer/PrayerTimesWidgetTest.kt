@@ -18,7 +18,7 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [32])
+@Config(sdk = [30])
 class PrayerTimesWidgetTest {
     private val context get() = RuntimeEnvironment.getApplication()
     private val manager get() = AppWidgetManager.getInstance(context)
