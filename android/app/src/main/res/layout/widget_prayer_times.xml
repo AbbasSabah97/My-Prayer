@@ -20,6 +20,13 @@
             android:layout_height="wrap_content" android:textColor="#77777C"
             android:textSize="11sp" android:fontFamily="@font/noto_sans_arabic_ui"
             android:includeFontPadding="false"/>
+        <TextView android:id="@+id/widget_refresh" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:layout_marginStart="10dp"
+            android:paddingHorizontal="8dp" android:paddingVertical="4dp"
+            android:text="تحديث" android:textColor="#145E5E"
+            android:textSize="11sp" android:textStyle="bold"
+            android:fontFamily="@font/noto_sans_arabic_ui"
+            android:includeFontPadding="false"/>
     </LinearLayout>
     <View android:layout_width="match_parent" android:layout_height="1dp"
         android:layout_marginTop="9dp" android:layout_marginBottom="4dp"

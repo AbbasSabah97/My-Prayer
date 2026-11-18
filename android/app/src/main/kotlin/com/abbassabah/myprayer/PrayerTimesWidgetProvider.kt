@@ -23,6 +23,9 @@ object PrayerWidgetUpdater {
 }
 
 class PrayerTimesWidgetProvider : AppWidgetProvider() {
+    companion object {
+        const val ACTION_REFRESH_WIDGET = "com.abbassabah.myprayer.action.REFRESH_WIDGET"
+    }
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
         PrayerWidgetUpdater.update(context)
@@ -54,6 +57,14 @@ class PrayerTimesWidgetProvider : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_title, "مواقيت الصلاة")
             views.setTextViewText(R.id.widget_date, today.format(dateFormat))
             views.setOnClickPendingIntent(R.id.widget_root, openApp)
+            val refreshIntent = Intent(context, PrayerTimesWidgetProvider::class.java)
+                .setAction(ACTION_REFRESH_WIDGET)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
+            val refreshPending = PendingIntent.getBroadcast(
+                context, id + 41000, refreshIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or if (android.os.Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0
+            )
+            views.setOnClickPendingIntent(R.id.widget_refresh, refreshPending)
             keys.forEachIndexed { index, key ->
                 val entry = prayers[key]
                 views.setTextViewText(
@@ -81,6 +92,10 @@ class PrayerTimesWidgetProvider : AppWidgetProvider() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == ACTION_REFRESH_WIDGET) {
+            PrayerWidgetUpdater.update(context)
+            return
+        }
         super.onReceive(context, intent)
         when (intent.action) {
             Intent.ACTION_DATE_CHANGED,
