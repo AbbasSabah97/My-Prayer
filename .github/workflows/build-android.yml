@@ -41,6 +41,13 @@ jobs:
       - name: Run tests and build APK
         working-directory: android
         run: gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
+      - name: Upload Android unit test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-Unit-Test-Reports
+          path: android/app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: ignore
       - name: Rename installable APK
         run: cp android/app/build/outputs/apk/debug/app-debug.apk MyPrayer-Android-1.6.1.apk
       - name: Upload Android APK
