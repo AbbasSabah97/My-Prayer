@@ -2,6 +2,7 @@ package com.abbassabah.myprayer
 
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.widget.ImageView
 import android.widget.TextView
@@ -36,11 +37,14 @@ class PrayerTimesWidgetTest {
         assertNotNull("Widget provider metadata is missing", receiver.metaData)
         assertTrue("Widget provider XML resource is missing",
             receiver.metaData!!.getInt("android.appwidget.provider") != 0)
-        val actions = receiver.filter?.let { filter ->
-            (0 until filter.countActions()).map { filter.getAction(it) }
-        }.orEmpty()
-        assertTrue(actions.contains(AppWidgetManager.ACTION_APPWIDGET_UPDATE))
-        assertTrue(actions.contains(android.content.Intent.ACTION_BOOT_COMPLETED))
+        val updateReceivers = context.packageManager.queryBroadcastReceivers(
+            Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).setPackage(context.packageName), 0
+        )
+        val bootReceivers = context.packageManager.queryBroadcastReceivers(
+            Intent(Intent.ACTION_BOOT_COMPLETED).setPackage(context.packageName), 0
+        )
+        assertTrue(updateReceivers.any { it.activityInfo.name == component.className })
+        assertTrue(bootReceivers.any { it.activityInfo.name == component.className })
     }
 
     @Test
