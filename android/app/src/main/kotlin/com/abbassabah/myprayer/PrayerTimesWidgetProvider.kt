@@ -87,7 +87,7 @@ class PrayerTimesWidgetProvider : AppWidgetProvider() {
             Intent.ACTION_TIME_CHANGED,
             Intent.ACTION_TIMEZONE_CHANGED,
             Intent.ACTION_BOOT_COMPLETED,
-            Intent.ACTION_MY_PACKAGE_REPLACED,
+            Intent.ACTION_MY_PACKAGE_REPLACED -> PrayerWidgetUpdater.update(context)
         }
     }
 }
