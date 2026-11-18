@@ -42,7 +42,7 @@ jobs:
         working-directory: android
         run: gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
       - name: Rename installable APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk MyPrayer-Android-1.5.0.apk
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk MyPrayer-Android-1.6.0.apk
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:

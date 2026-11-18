@@ -161,6 +161,7 @@ private fun PrayerApp() {
                 locationLabel = "موقعي الحالي"
                 locationMessage = null
                 PrayerLocationStore.save(context, lat, lon)
+                PrayerWidgetUpdater.update(context)
             }
         } else {
             locationPermissionLauncher.launch(arrayOf(
@@ -191,6 +192,7 @@ private fun PrayerApp() {
                     longitude = lon
                     locationLabel = "موقعي الحالي"
                     PrayerLocationStore.save(context, lat, lon)
+                PrayerWidgetUpdater.update(context)
                 }
             } else {
                 locationPermissionLauncher.launch(arrayOf(
@@ -250,7 +252,7 @@ private fun PrayerApp() {
                         NavigationBarItem(
                             selected = selectedTab == "today",
                             onClick = { selectedTab = "today" },
-                            icon = { AppSymbol("moon.stars.fill", Modifier.size(23.dp), if (selectedTab == "today") AppTeal else AppMuted) },
+                            icon = { AppSymbol("nav.prayer", Modifier.size(23.dp), if (selectedTab == "today") AppTeal else AppMuted) },
                             label = { Text("الصلاة", fontSize = 10.sp) },
                             colors = navColors
                         )
@@ -777,7 +779,7 @@ private fun DropdownField(
         Box {
             OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
                 Text(current, modifier = Modifier.weight(1f), textAlign = TextAlign.Start, color = AppDark)
-                Icon(Icons.Filled.ExpandMore, contentDescription = null, tint = AppTeal)
+                AppSymbol("chevron.down", Modifier.size(20.dp), AppTeal)
             }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 options.forEach { (id, title) ->
@@ -803,33 +805,37 @@ private fun AngleStepper(title: String, value: Double, minimum: Double, maximum:
 
 @Composable
 private fun prayerDrawable(name: String): Int? = when (name) {
-    "sunrise.fill", "sunrise" -> R.drawable.ic_prayer_fajr
+    // Prayer-time pictograms: hand-drawn vector paths matching the iOS reference artwork.
+    "sunrise.fill" -> R.drawable.ic_prayer_fajr
     "sun.max.fill" -> R.drawable.ic_prayer_dhuhr
     "sun.haze.fill" -> R.drawable.ic_prayer_asr
-    "sunset.fill", "sunset" -> R.drawable.ic_prayer_maghrib
-    "moon.stars.fill", "moon.zzz.fill" -> R.drawable.ic_prayer_isha
+    "sunset.fill" -> R.drawable.ic_prayer_maghrib
+    "moon.stars.fill" -> R.drawable.ic_prayer_isha
+    // Solar-event pictograms.
+    "sunrise" -> R.drawable.ic_event_sunrise
+    "sunset" -> R.drawable.ic_event_sunset
+    "moon.zzz.fill" -> R.drawable.ic_event_midnight
+    // Navigation and interface pictograms.
+    "nav.prayer" -> R.drawable.ic_nav_prayer
+    "bell.badge.fill" -> R.drawable.ic_nav_alerts
+    "bell.slash.fill" -> R.drawable.ic_bell_slash
+    "checkmark.seal.fill" -> R.drawable.ic_checkmark_seal
+    "gearshape.fill" -> R.drawable.ic_nav_settings
+    "location.fill" -> R.drawable.ic_location
+    "sparkles" -> R.drawable.ic_sparkles
+    "calendar" -> R.drawable.ic_calendar
+    "info.circle" -> R.drawable.ic_info
+    "chevron.down" -> R.drawable.ic_chevron_down
     else -> null
 }
 
 @Composable
 private fun AppSymbol(name: String, modifier: Modifier = Modifier, tint: Color = AppTeal) {
-    val prayerIcon = prayerDrawable(name)
-    if (prayerIcon != null) {
-        Icon(painterResource(prayerIcon), contentDescription = null, modifier = modifier, tint = tint)
+    val drawable = prayerDrawable(name)
+    if (drawable != null) {
+        Icon(painterResource(drawable), contentDescription = null, modifier = modifier, tint = tint)
     } else {
-        val image = when (name) {
-            "bell.badge.fill" -> Icons.Filled.Notifications
-            "bell.slash.fill" -> Icons.Filled.NotificationsOff
-            "checkmark.seal.fill" -> Icons.Filled.Verified
-            "gearshape.fill" -> Icons.Filled.Settings
-            "location.fill" -> Icons.Filled.LocationOn
-            "sparkles" -> Icons.Filled.AutoAwesome
-            "calendar" -> Icons.Filled.CalendarMonth
-            "info.circle" -> Icons.Filled.Info
-            "chevron.down" -> Icons.Filled.ExpandMore
-            else -> Icons.Filled.Circle
-        }
-        Icon(image, contentDescription = null, modifier = modifier, tint = tint)
+        Icon(Icons.Filled.Circle, contentDescription = null, modifier = modifier, tint = tint)
     }
 }
 

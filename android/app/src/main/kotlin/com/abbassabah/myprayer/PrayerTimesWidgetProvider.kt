@@ -73,6 +73,13 @@ class PrayerTimesWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    override fun onAppWidgetOptionsChanged(
+        context: Context, manager: AppWidgetManager, appWidgetId: Int, newOptions: android.os.Bundle
+    ) {
+        super.onAppWidgetOptionsChanged(context, manager, appWidgetId, newOptions)
+        onUpdate(context, manager, intArrayOf(appWidgetId))
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         when (intent.action) {
@@ -81,7 +88,6 @@ class PrayerTimesWidgetProvider : AppWidgetProvider() {
             Intent.ACTION_TIMEZONE_CHANGED,
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_MY_PACKAGE_REPLACED,
-            AppWidgetManager.ACTION_APPWIDGET_UPDATE -> PrayerWidgetUpdater.update(context)
         }
     }
 }
